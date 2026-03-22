@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic Mastery</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020617;--surface:#0f172a;--surface2:#1e293b;--border:#334155;
+  --text:#e2e8f0;--text2:#94a3b8;--accent:#3b82f6;--accent2:#60a5fa;
+  --green:#22c55e;--yellow:#eab308;--red:#ef4444;--purple:#a855f7;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.5}
+a{color:var(--accent2);text-decoration:none}
+a:hover{text-decoration:underline}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,textarea{font-family:inherit;font-size:inherit}
+
+/* Layout */
+#app{max-width:900px;margin:0 auto;padding:16px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:24px}
+.header h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .nav{display:flex;gap:12px;align-items:center}
+.header .nav a,.header .nav button{color:var(--text2);background:none;border:none;font-size:13px;padding:4px 8px;border-radius:4px}
+.header .nav a:hover,.header .nav button:hover{color:var(--text);background:var(--surface2)}
+
+/* Login */
+.login-wrap{display:flex;justify-content:center;align-items:center;min-height:80vh}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;width:100%;max-width:380px}
+.login-box h2{margin-bottom:24px;text-align:center}
+.login-box input{width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:12px}
+.login-box input:focus{outline:none;border-color:var(--accent)}
+.login-box button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600;margin-top:8px}
+.login-box button:hover{background:var(--accent2)}
+.login-box .error{color:var(--red);font-size:13px;margin-top:8px}
+
+/* Dashboard */
+.dash-streak{text-align:center;margin-bottom:24px;padding:16px;background:var(--surface);border-radius:8px;border:1px solid var(--border)}
+.dash-streak .count{font-size:32px;font-weight:700;color:var(--accent2)}
+.dash-streak .label{font-size:13px;color:var(--text2)}
+.module-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:24px}
+.module-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;transition:border-color .2s}
+.module-card:hover{border-color:var(--accent)}
+.module-card h3{font-size:16px;margin-bottom:4px}
+.module-card .subtitle{font-size:13px;color:var(--text2);margin-bottom:12px}
+.module-card .stats{display:flex;gap:16px;margin-bottom:12px;font-size:13px}
+.module-card .stats span{color:var(--text2)}
+.module-card .stats strong{color:var(--text)}
+.mastery-bar{height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;margin-bottom:12px;display:flex}
+.mastery-bar .seg{height:100%;transition:width .3s}
+.mastery-bar .seg.new{background:var(--border)}
+.mastery-bar .seg.learning{background:var(--yellow)}
+.mastery-bar .seg.review{background:var(--accent)}
+.mastery-bar .seg.mastered{background:var(--green)}
+.module-card .btn-start{display:block;width:100%;padding:8px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600;text-align:center}
+.module-card .btn-start:hover{background:var(--accent2)}
+.weak-zones{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px}
+.weak-zones h3{font-size:15px;margin-bottom:8px}
+.weak-zones .zone{display:inline-block;padding:4px 10px;background:rgba(239,68,68,.15);color:var(--red);border-radius:12px;font-size:12px;margin:2px 4px 2px 0}
+
+/* Session */
+.session-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:16px}
+.session-header .concept{font-size:14px;color:var(--accent2);font-weight:600}
+.session-header .timer{font-size:13px;color:var(--text2);font-variant-numeric:tabular-nums}
+.session-header .btn-end{padding:6px 14px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600}
+.session-header .btn-end:hover{opacity:.9}
+.chat{display:flex;flex-direction:column;gap:12px;padding-bottom:80px;min-height:50vh}
+.chat .msg{max-width:85%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.6;word-wrap:break-word}
+.chat .msg.assistant{align-self:flex-start;background:var(--surface);border:1px solid var(--border)}
+.chat .msg.user{align-self:flex-end;background:var(--accent);color:#fff}
+.chat .msg.assistant p{margin-bottom:8px}
+.chat .msg.assistant p:last-child{margin-bottom:0}
+.chat .msg.assistant code{background:var(--surface2);padding:1px 4px;border-radius:3px;font-size:13px}
+.chat .msg.assistant pre{background:var(--surface2);padding:8px;border-radius:4px;overflow-x:auto;margin:8px 0}
+.chat .msg.assistant pre code{background:none;padding:0}
+.chat .typing{align-self:flex-start;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-size:13px}
+.chat .eval-flash{position:fixed;top:0;left:0;right:0;height:4px;animation:flash .8s ease-out;opacity:0;z-index:100}
+.chat .eval-flash.correct_confident{background:var(--green)}
+.chat .eval-flash.correct_hesitant{background:var(--yellow)}
+.chat .eval-flash.incorrect{background:var(--red)}
+@keyframes flash{0%{opacity:1}100%{opacity:0}}
+.input-bar{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);padding:12px 16px}
+.input-bar form{max-width:900px;margin:0 auto;display:flex;gap:8px}
+.input-bar textarea{flex:1;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);resize:none;min-height:42px;max-height:120px}
+.input-bar textarea:focus{outline:none;border-color:var(--accent)}
+.input-bar button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:600}
+.input-bar button:disabled{opacity:.5;cursor:not-allowed}
+
+/* Summary */
+.summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center}
+.summary h2{margin-bottom:16px}
+.summary .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.summary .stat{padding:12px}
+.summary .stat .val{font-size:28px;font-weight:700}
+.summary .stat .lbl{font-size:12px;color:var(--text2)}
+.summary .stat .val.green{color:var(--green)}
+.summary .stat .val.red{color:var(--red)}
+.summary .stat .val.blue{color:var(--accent2)}
+.summary button{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600}
+
+/* Progress */
+.progress-tabs{display:flex;gap:4px;margin-bottom:16px}
+.progress-tabs button{padding:8px 16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text2)}
+.progress-tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.concept-list{display:flex;flex-direction:column;gap:8px}
+.concept-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:border-color .2s}
+.concept-row:hover{border-color:var(--accent)}
+.concept-row .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.concept-row .dot.new{background:var(--border)}
+.concept-row .dot.learning{background:var(--yellow)}
+.concept-row .dot.review{background:var(--accent)}
+.concept-row .dot.mastered{background:var(--green)}
+.concept-row .name{flex:1;font-size:14px}
+.concept-row .meta{font-size:12px;color:var(--text2)}
+.due-forecast{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.due-forecast h3{font-size:15px;margin-bottom:8px}
+.due-forecast .row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:var(--text2)}
+.due-forecast .row strong{color:var(--text)}
+.session-history{margin-top:16px}
+.session-history h3{font-size:15px;margin-bottom:8px}
+.session-row{display:flex;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:4px;font-size:13px}
+
+/* Concept Detail */
+.concept-detail{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px}
+.concept-detail h2{margin-bottom:4px}
+.concept-detail .cat{color:var(--text2);font-size:13px;margin-bottom:16px}
+.concept-detail .desc{margin-bottom:16px;line-height:1.7;color:var(--text)}
+.concept-detail .tags{margin-bottom:16px}
+.concept-detail .tags span{display:inline-block;padding:2px 8px;background:var(--surface2);border-radius:10px;font-size:12px;color:var(--text2);margin:2px 4px 2px 0}
+.concept-detail .sm2-state{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px}
+.concept-detail .sm2-state .item{padding:12px;background:var(--surface2);border-radius:6px}
+.concept-detail .sm2-state .item .lbl{font-size:12px;color:var(--text2)}
+.concept-detail .sm2-state .item .val{font-size:18px;font-weight:600}
+.concept-detail .btn-drill{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600}
+.concept-detail .history{margin-top:16px}
+.concept-detail .history h3{font-size:14px;margin-bottom:8px}
+
+/* Responsive */
+@media(max-width:600px){
+  .module-grid{grid-template-columns:1fr}
+  .summary .stat-grid{grid-template-columns:1fr}
+  .concept-detail .sm2-state{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const SUPABASE_URL = 'https://vxtaghytxnycegztmrml.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4dGFnaHl0eG55Y2VnenRtcm1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTM2MzIsImV4cCI6MjA4NjY2OTYzMn0.3E0IFwp6LIcs7tChpj28jgaerf76zCB-oCbjRJkAtDU';
+const TUTOR_URL = `${SUPABASE_URL}/functions/v1/socratic-tutor`;
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const app = document.getElementById('app');
+
+const MODULE_LABELS = {
+  ent_business: { name: 'ENT Business', icon: '💼', desc: 'Revenue cycle, practice finance, operations, strategy' },
+  neuro_boards: { name: 'Neuro Boards', icon: '🧠', desc: 'Spine, cranial, vascular, functional, trauma, critical care' },
+  leadership: { name: 'Leadership', icon: '🎯', desc: 'Rhetoric, learning science, time management, leadership' },
+};
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  user: null,
+  concepts: [],
+  progress: {},     // concept_id -> progress row
+  sessions: [],
+  // Session state
+  activeSession: null,
+  activeModule: null,
+  sessionConcepts: [],
+  currentConceptIdx: 0,
+  messages: [],     // {role, content} for Claude
+  chatDisplay: [],  // {role, content, evaluation} for UI
+  sessionTimer: 0,
+  timerInterval: null,
+  sending: false,
+};
+
+// ============================================================
+// SM-2 ALGORITHM
+// ============================================================
+function sm2Update(progress, evaluation) {
+  const p = { ...progress };
+  const now = new Date();
+  p.last_reviewed = now.toISOString();
+  p.updated_at = now.toISOString();
+
+  if (evaluation === 'correct_confident') {
+    p.times_correct++;
+    p.ease_factor = Math.min(3.0, p.ease_factor + 0.1);
+    p.interval_days = Math.max(1, p.interval_days === 0 ? 1 : p.interval_days * 2);
+  } else if (evaluation === 'correct_hesitant') {
+    p.times_correct++;
+    p.interval_days = Math.max(1, p.interval_days === 0 ? 1 : p.interval_days * 1.5);
+  } else {
+    p.times_incorrect++;
+    p.ease_factor = Math.max(1.3, p.ease_factor - 0.2);
+    p.interval_days = 1;
+  }
+
+  // State transitions
+  if (p.interval_days > 21) p.state = 'mastered';
+  else if (p.interval_days > 3) p.state = 'review';
+  else if (p.times_correct + p.times_incorrect > 0) p.state = 'learning';
+  else p.state = 'new';
+
+  p.next_review = new Date(now.getTime() + p.interval_days * 86400000).toISOString();
+  return p;
+}
+
+// ============================================================
+// DATA LOADING
+// ============================================================
+async function loadData() {
+  const [conceptsRes, progressRes, sessionsRes] = await Promise.all([
+    sb.from('sm_concepts').select('*').order('module').order('sort_order'),
+    sb.from('sm_progress').select('*').eq('user_id', state.user.id),
+    sb.from('sm_sessions').select('*').eq('user_id', state.user.id).order('started_at', { ascending: false }).limit(50),
+  ]);
+  state.concepts = conceptsRes.data || [];
+  state.progress = {};
+  (progressRes.data || []).forEach(p => { state.progress[p.concept_id] = p; });
+  state.sessions = sessionsRes.data || [];
+}
+
+function getProgress(conceptId) {
+  return state.progress[conceptId] || {
+    state: 'new', interval_days: 0, ease_factor: 2.5,
+    next_review: new Date().toISOString(), times_correct: 0, times_incorrect: 0,
+  };
+}
+
+function getModuleStats(module) {
+  const concepts = state.concepts.filter(c => c.module === module);
+  const counts = { new: 0, learning: 0, review: 0, mastered: 0, due: 0 };
+  const now = new Date();
+  concepts.forEach(c => {
+    const p = getProgress(c.id);
+    counts[p.state]++;
+    if (p.state === 'new' || new Date(p.next_review) <= now) counts.due++;
+  });
+  const lastSession = state.sessions.find(s => s.module === module);
+  return { total: concepts.length, ...counts, lastSession };
+}
+
+function getWeakZones() {
+  const weak = [];
+  state.concepts.forEach(c => {
+    const p = getProgress(c.id);
+    if (p.times_incorrect >= 2 && p.state !== 'mastered') {
+      weak.push(c.name);
+    }
+  });
+  return weak;
+}
+
+function getStreak() {
+  if (!state.sessions.length) return 0;
+  let streak = 0;
+  const today = new Date(); today.setHours(0,0,0,0);
+  let checkDate = new Date(today);
+  const sessionDates = new Set(state.sessions.map(s => {
+    const d = new Date(s.started_at); d.setHours(0,0,0,0); return d.getTime();
+  }));
+  while (sessionDates.has(checkDate.getTime())) {
+    streak++;
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+  return streak;
+}
+
+function getDueConcepts(module) {
+  const now = new Date();
+  const concepts = state.concepts.filter(c => c.module === module);
+  const due = [];
+  const newItems = [];
+  concepts.forEach(c => {
+    const p = getProgress(c.id);
+    if (p.state === 'new' && !(p.concept_id)) newItems.push(c);
+    else if (new Date(p.next_review) <= now) due.push(c);
+    else if (p.state === 'new') newItems.push(c);
+  });
+  // Due items first (sorted by overdue-ness), then new items
+  due.sort((a, b) => new Date(getProgress(a.id).next_review) - new Date(getProgress(b.id).next_review));
+  return [...due, ...newItems];
+}
+
+// ============================================================
+// ROUTING
+// ============================================================
+function navigate(hash) {
+  window.location.hash = hash;
+}
+
+function getRoute() {
+  const hash = window.location.hash.slice(1) || '/';
+  const parts = hash.split('/').filter(Boolean);
+  if (parts.length === 0) return { page: 'dashboard' };
+  if (parts[0] === 'session' && parts[1]) return { page: 'session', module: parts[1] };
+  if (parts[0] === 'progress' && parts[1]) return { page: 'progress', module: parts[1] };
+  if (parts[0] === 'concept' && parts[1]) return { page: 'concept', id: parts[1] };
+  if (parts[0] === 'summary') return { page: 'summary' };
+  return { page: 'dashboard' };
+}
+
+async function router() {
+  if (!state.user) { renderLogin(); return; }
+  const route = getRoute();
+  switch (route.page) {
+    case 'dashboard': await renderDashboard(); break;
+    case 'session': await renderSession(route.module); break;
+    case 'progress': renderProgress(route.module); break;
+    case 'concept': renderConceptDetail(route.id); break;
+    case 'summary': renderSummary(); break;
+    default: await renderDashboard();
+  }
+}
+
+// ============================================================
+// RENDER: LOGIN
+// ============================================================
+function renderLogin() {
+  app.innerHTML = `
+    <div class="login-wrap">
+      <div class="login-box">
+        <h2>Socratic Mastery</h2>
+        <input type="email" id="email" placeholder="Email" autocomplete="email">
+        <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+        <button id="loginBtn">Sign In</button>
+        <div class="error" id="loginError"></div>
+      </div>
+    </div>`;
+  document.getElementById('loginBtn').onclick = async () => {
+    const email = document.getElementById('email').value;
+    const pw = document.getElementById('password').value;
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if (error) { document.getElementById('loginError').textContent = error.message; return; }
+    state.user = data.user;
+    await loadData();
+    navigate('/');
+  };
+  // Enter to submit
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('loginBtn').click();
+  });
+}
+
+// ============================================================
+// RENDER: HEADER
+// ============================================================
+function headerHTML(title) {
+  return `<div class="header">
+    <h1>${title || 'Socratic Mastery'}</h1>
+    <div class="nav">
+      <a href="#/">Dashboard</a>
+      <button id="logoutBtn">Logout</button>
+    </div>
+  </div>`;
+}
+function bindHeader() {
+  const btn = document.getElementById('logoutBtn');
+  if (btn) btn.onclick = async () => { await sb.auth.signOut(); state.user = null; renderLogin(); };
+}
+
+// ============================================================
+// RENDER: DASHBOARD
+// ============================================================
+async function renderDashboard() {
+  const streak = getStreak();
+  const weakZones = getWeakZones();
+  let html = headerHTML();
+
+  // Streak
+  html += `<div class="dash-streak"><div class="count">${streak}</div><div class="label">day streak</div></div>`;
+
+  // Module cards
+  html += '<div class="module-grid">';
+  for (const [mod, info] of Object.entries(MODULE_LABELS)) {
+    const s = getModuleStats(mod);
+    const pct = s.total ? {
+      new: (s.new/s.total*100).toFixed(0),
+      learning: (s.learning/s.total*100).toFixed(0),
+      review: (s.review/s.total*100).toFixed(0),
+      mastered: (s.mastered/s.total*100).toFixed(0),
+    } : { new:100, learning:0, review:0, mastered:0 };
+    const lastStr = s.lastSession ? new Date(s.lastSession.started_at).toLocaleDateString() : 'Never';
+    html += `<div class="module-card">
+      <h3>${info.icon} ${info.name}</h3>
+      <div class="subtitle">${info.desc}</div>
+      <div class="stats">
+        <span><strong>${s.due}</strong> due</span>
+        <span><strong>${s.total}</strong> concepts</span>
+        <span>Last: <strong>${lastStr}</strong></span>
+      </div>
+      <div class="mastery-bar">
+        <div class="seg new" style="width:${pct.new}%"></div>
+        <div class="seg learning" style="width:${pct.learning}%"></div>
+        <div class="seg review" style="width:${pct.review}%"></div>
+        <div class="seg mastered" style="width:${pct.mastered}%"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-start" onclick="startSession('${mod}')">Start Session</button>
+        <a href="#/progress/${mod}" style="padding:8px 14px;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:13px;display:flex;align-items:center">Progress</a>
+      </div>
+    </div>`;
+  }
+  html += '</div>';
+
+  // Weak zones
+  if (weakZones.length) {
+    html += `<div class="weak-zones"><h3>Weak Zones</h3><div>${weakZones.map(z => `<span class="zone">${z}</span>`).join('')}</div></div>`;
+  }
+
+  app.innerHTML = html;
+  bindHeader();
+}
+
+// ============================================================
+// SESSION MANAGEMENT
+// ============================================================
+window.startSession = async function(module) {
+  const due = getDueConcepts(module);
+  if (!due.length) { alert('No concepts due for review!'); return; }
+
+  // Create session in DB
+  const { data: session, error } = await sb.from('sm_sessions').insert({
+    user_id: state.user.id, module, started_at: new Date().toISOString(),
+    items_reviewed: 0, items_correct: 0, items_incorrect: 0,
+  }).select().single();
+  if (error) { alert('Failed to create session: ' + error.message); return; }
+
+  state.activeSession = session;
+  state.activeModule = module;
+  state.sessionConcepts = due.slice(0, 10); // Max 10 per session
+  state.currentConceptIdx = 0;
+  state.messages = [];
+  state.chatDisplay = [];
+  state.sessionTimer = 0;
+  state.sending = false;
+
+  navigate(`/session/${module}`);
+};
+
+async function renderSession(module) {
+  if (!state.activeSession || state.activeModule !== module) {
+    navigate('/');
+    return;
+  }
+
+  const concept = state.sessionConcepts[state.currentConceptIdx];
+  const weakZones = getWeakZones();
+
+  let html = '';
+  // Session header
+  html += `<div class="session-header">
+    <div class="concept">📌 ${concept ? concept.name : 'Complete'}</div>
+    <div class="timer" id="timer">00:00</div>
+    <button class="btn-end" id="endSessionBtn">End Session</button>
+  </div>`;
+
+  // Chat
+  html += '<div class="chat" id="chat">';
+  state.chatDisplay.forEach(m => {
+    if (m.role === 'assistant') {
+      html += `<div class="msg assistant">${marked.parse(m.content)}</div>`;
+    } else {
+      html += `<div class="msg user">${escapeHtml(m.content)}</div>`;
+    }
+  });
+  if (state.sending) {
+    html += '<div class="typing">Thinking...</div>';
+  }
+  html += '</div>';
+
+  // Input bar
+  html += `<div class="input-bar"><form id="chatForm">
+    <textarea id="chatInput" rows="1" placeholder="Type your answer..." ${state.sending ? 'disabled' : ''}></textarea>
+    <button type="submit" ${state.sending ? 'disabled' : ''}>Send</button>
+  </form></div>`;
+
+  app.innerHTML = html;
+
+  // Timer
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  state.timerInterval = setInterval(() => {
+    state.sessionTimer++;
+    const m = Math.floor(state.sessionTimer / 60).toString().padStart(2, '0');
+    const s = (state.sessionTimer % 60).toString().padStart(2, '0');
+    const el = document.getElementById('timer');
+    if (el) el.textContent = `${m}:${s}`;
+  }, 1000);
+
+  // If no messages yet, start session with Claude
+  if (state.chatDisplay.length === 0) {
+    await callTutor('start_session');
+  }
+
+  // Bind form
+  const form = document.getElementById('chatForm');
+  if (form) {
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text || state.sending) return;
+      input.value = '';
+      await sendMessage(text);
+    };
+    // Auto-resize textarea
+    const input = document.getElementById('chatInput');
+    if (input) {
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.dispatchEvent(new Event('submit')); }
+      });
+      input.focus();
+    }
+  }
+
+  // End session
+  document.getElementById('endSessionBtn').onclick = () => endSession();
+
+  scrollChat();
+}
+
+async function sendMessage(text) {
+  state.messages.push({ role: 'user', content: text });
+  state.chatDisplay.push({ role: 'user', content: text });
+  state.sending = true;
+  reRenderChat();
+  await callTutor('respond');
+}
+
+async function callTutor(action) {
+  const concept = state.sessionConcepts[state.currentConceptIdx];
+  const weakZones = getWeakZones();
+
+  try {
+    state.sending = true;
+    reRenderChat();
+
+    const body = {
+      action,
+      module: state.activeModule,
+      messages: state.messages,
+      concepts: state.sessionConcepts.map(c => ({
+        name: c.name, category: c.category, subcategory: c.subcategory, difficulty: c.difficulty,
+      })),
+      weakZones,
+      currentConcept: concept?.name,
+    };
+
+    const res = await fetch(TUTOR_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    if (data.error) { console.error('Tutor error:', data); }
+
+    const content = data.content || data.error || 'No response';
+    state.messages.push({ role: 'assistant', content });
+    state.chatDisplay.push({ role: 'assistant', content, evaluation: data.evaluation });
+
+    // Save conversation turn
+    if (state.activeSession && concept) {
+      sb.from('sm_conversations').insert({
+        session_id: state.activeSession.id,
+        user_id: state.user.id,
+        concept_id: concept.id,
+        role: 'assistant',
+        content,
+        evaluation: data.evaluation,
+      }).then(() => {});
+    }
+
+    // Handle evaluation → SM-2 update
+    if (data.evaluation) {
+      await handleEvaluation(data.evaluation, concept);
+    }
+
+    // Handle next concept signal
+    if (data.nextConcept) {
+      const nextIdx = state.sessionConcepts.findIndex(c =>
+        c.name.toLowerCase().includes(data.nextConcept.toLowerCase())
+      );
+      if (nextIdx > state.currentConceptIdx) {
+        state.currentConceptIdx = nextIdx;
+      } else if (state.currentConceptIdx < state.sessionConcepts.length - 1) {
+        state.currentConceptIdx++;
+      }
+    }
+  } catch (err) {
+    console.error('Tutor call failed:', err);
+    state.chatDisplay.push({ role: 'assistant', content: `Error: ${err.message}. Check console for details.` });
+  }
+
+  state.sending = false;
+  reRenderChat();
+  scrollChat();
+}
+
+async function handleEvaluation(evaluation, concept) {
+  if (!concept) return;
+
+  // Flash
+  showEvalFlash(evaluation);
+
+  // Get or create progress row
+  let p = state.progress[concept.id];
+  if (!p) {
+    // Create new progress row
+    const newP = {
+      user_id: state.user.id,
+      concept_id: concept.id,
+      state: 'new',
+      interval_days: 0,
+      ease_factor: 2.5,
+      next_review: new Date().toISOString(),
+      times_correct: 0,
+      times_incorrect: 0,
+    };
+    const { data, error } = await sb.from('sm_progress').insert(newP).select().single();
+    if (error) { console.error('Progress insert error:', error); return; }
+    p = data;
+    state.progress[concept.id] = p;
+  }
+
+  // SM-2 update
+  const updated = sm2Update(p, evaluation);
+
+  // Sync to DB
+  const { error } = await sb.from('sm_progress').update({
+    state: updated.state,
+    interval_days: updated.interval_days,
+    ease_factor: updated.ease_factor,
+    next_review: updated.next_review,
+    times_correct: updated.times_correct,
+    times_incorrect: updated.times_incorrect,
+    last_reviewed: updated.last_reviewed,
+    updated_at: updated.updated_at,
+  }).eq('id', p.id);
+
+  if (!error) {
+    state.progress[concept.id] = { ...p, ...updated };
+  }
+
+  // Update session stats
+  const sess = state.activeSession;
+  if (sess) {
+    sess.items_reviewed++;
+    if (evaluation === 'correct_confident' || evaluation === 'correct_hesitant') sess.items_correct++;
+    else sess.items_incorrect++;
+    sb.from('sm_sessions').update({
+      items_reviewed: sess.items_reviewed,
+      items_correct: sess.items_correct,
+      items_incorrect: sess.items_incorrect,
+    }).eq('id', sess.id).then(() => {});
+  }
+}
+
+function showEvalFlash(evaluation) {
+  const el = document.createElement('div');
+  el.className = `eval-flash ${evaluation}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+function reRenderChat() {
+  const chat = document.getElementById('chat');
+  if (!chat) return;
+  let html = '';
+  state.chatDisplay.forEach(m => {
+    if (m.role === 'assistant') {
+      html += `<div class="msg assistant">${marked.parse(m.content)}</div>`;
+    } else {
+      html += `<div class="msg user">${escapeHtml(m.content)}</div>`;
+    }
+  });
+  if (state.sending) {
+    html += '<div class="typing">Thinking...</div>';
+  }
+  chat.innerHTML = html;
+
+  // Update concept indicator
+  const concept = state.sessionConcepts[state.currentConceptIdx];
+  const conceptEl = document.querySelector('.session-header .concept');
+  if (conceptEl && concept) conceptEl.textContent = `📌 ${concept.name}`;
+
+  // Enable/disable input
+  const input = document.getElementById('chatInput');
+  const btn = document.querySelector('.input-bar button');
+  if (input) { input.disabled = state.sending; if (!state.sending) input.focus(); }
+  if (btn) btn.disabled = state.sending;
+}
+
+function scrollChat() {
+  const chat = document.getElementById('chat');
+  if (chat) {
+    setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 50);
+  }
+}
+
+async function endSession() {
+  if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+  if (state.activeSession) {
+    await sb.from('sm_sessions').update({
+      ended_at: new Date().toISOString(),
+      items_reviewed: state.activeSession.items_reviewed,
+      items_correct: state.activeSession.items_correct,
+      items_incorrect: state.activeSession.items_incorrect,
+    }).eq('id', state.activeSession.id);
+  }
+  await loadData();
+  navigate('/summary');
+}
+
+// ============================================================
+// RENDER: SUMMARY
+// ============================================================
+function renderSummary() {
+  const s = state.activeSession || { items_reviewed: 0, items_correct: 0, items_incorrect: 0 };
+  const pct = s.items_reviewed ? Math.round(s.items_correct / s.items_reviewed * 100) : 0;
+  const m = Math.floor(state.sessionTimer / 60);
+  const sec = state.sessionTimer % 60;
+
+  app.innerHTML = headerHTML('Session Complete') + `
+    <div class="summary">
+      <h2>Session Summary</h2>
+      <div class="stat-grid">
+        <div class="stat"><div class="val blue">${s.items_reviewed}</div><div class="lbl">Items Reviewed</div></div>
+        <div class="stat"><div class="val green">${pct}%</div><div class="lbl">Accuracy</div></div>
+        <div class="stat"><div class="val">${m}m ${sec}s</div><div class="lbl">Duration</div></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="val green">${s.items_correct}</div><div class="lbl">Correct</div></div>
+        <div class="stat"><div class="val red">${s.items_incorrect}</div><div class="lbl">Incorrect</div></div>
+        <div class="stat"><div class="val">${state.sessionConcepts.length}</div><div class="lbl">Concepts</div></div>
+      </div>
+      <button onclick="navigate('/')">Back to Dashboard</button>
+    </div>`;
+  bindHeader();
+  state.activeSession = null;
+}
+
+// ============================================================
+// RENDER: PROGRESS
+// ============================================================
+function renderProgress(module) {
+  const info = MODULE_LABELS[module] || { name: module, icon: '📚' };
+  const concepts = state.concepts.filter(c => c.module === module);
+  const now = new Date();
+
+  // Group by category
+  const categories = {};
+  concepts.forEach(c => {
+    if (!categories[c.category]) categories[c.category] = [];
+    categories[c.category].push(c);
+  });
+
+  // Due forecast
+  const dueToday = concepts.filter(c => { const p = getProgress(c.id); return p.state === 'new' || new Date(p.next_review) <= now; }).length;
+  const dueTomorrow = concepts.filter(c => { const p = getProgress(c.id); const nr = new Date(p.next_review); const tom = new Date(now); tom.setDate(tom.getDate()+1); tom.setHours(23,59,59); return nr > now && nr <= tom; }).length;
+  const dueWeek = concepts.filter(c => { const p = getProgress(c.id); const nr = new Date(p.next_review); const wk = new Date(now); wk.setDate(wk.getDate()+7); return nr > now && nr <= wk; }).length;
+
+  let html = headerHTML(`${info.icon} ${info.name}`);
+
+  // Tabs
+  html += `<div class="progress-tabs">
+    ${Object.entries(MODULE_LABELS).map(([m, i]) =>
+      `<button class="${m===module?'active':''}" onclick="navigate('/progress/${m}')">${i.icon} ${i.name}</button>`
+    ).join('')}
+  </div>`;
+
+  // Due forecast
+  html += `<div class="due-forecast">
+    <h3>Due Forecast</h3>
+    <div class="row"><span>Today</span><strong>${dueToday}</strong></div>
+    <div class="row"><span>Tomorrow</span><strong>${dueTomorrow}</strong></div>
+    <div class="row"><span>This week</span><strong>${dueWeek}</strong></div>
+  </div>`;
+
+  // Concept list by category
+  for (const [cat, items] of Object.entries(categories)) {
+    html += `<h3 style="margin:16px 0 8px;font-size:14px;color:var(--text2)">${cat}</h3>`;
+    html += '<div class="concept-list">';
+    items.forEach(c => {
+      const p = getProgress(c.id);
+      const dueStr = p.state === 'new' ? 'New' : (new Date(p.next_review) <= now ? 'Due now' : `Due ${new Date(p.next_review).toLocaleDateString()}`);
+      html += `<div class="concept-row" onclick="navigate('/concept/${c.id}')">
+        <div class="dot ${p.state}"></div>
+        <div class="name">${c.name}</div>
+        <div class="meta">${dueStr}</div>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Session history
+  const modSessions = state.sessions.filter(s => s.module === module);
+  if (modSessions.length) {
+    html += '<div class="session-history"><h3>Session History</h3>';
+    modSessions.slice(0, 10).forEach(s => {
+      const pct = s.items_reviewed ? Math.round(s.items_correct / s.items_reviewed * 100) : 0;
+      html += `<div class="session-row">
+        <span>${new Date(s.started_at).toLocaleDateString()} ${new Date(s.started_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+        <span>${s.items_reviewed} items · ${pct}% accuracy</span>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  app.innerHTML = html;
+  bindHeader();
+}
+
+// ============================================================
+// RENDER: CONCEPT DETAIL
+// ============================================================
+function renderConceptDetail(id) {
+  const c = state.concepts.find(x => x.id === id);
+  if (!c) { navigate('/'); return; }
+  const p = getProgress(c.id);
+  const info = MODULE_LABELS[c.module] || { name: c.module };
+
+  let html = headerHTML(info.name);
+  html += `<div class="concept-detail">
+    <h2>${c.name}</h2>
+    <div class="cat">${c.category}${c.subcategory ? ' / ' + c.subcategory : ''} · Difficulty: ${'★'.repeat(c.difficulty)}${'☆'.repeat(5 - c.difficulty)}</div>
+    <div class="desc">${c.description || 'No description yet.'}</div>
+    <div class="tags">${(c.tags || []).map(t => `<span>${t}</span>`).join('')}</div>
+    <div class="sm2-state">
+      <div class="item"><div class="lbl">State</div><div class="val" style="color:var(--${p.state==='mastered'?'green':p.state==='review'?'accent':p.state==='learning'?'yellow':'text2'})">${p.state}</div></div>
+      <div class="item"><div class="lbl">Interval</div><div class="val">${p.interval_days ? p.interval_days.toFixed(1) + 'd' : '—'}</div></div>
+      <div class="item"><div class="lbl">Ease Factor</div><div class="val">${p.ease_factor.toFixed(2)}</div></div>
+      <div class="item"><div class="lbl">Next Review</div><div class="val" style="font-size:14px">${p.state === 'new' ? 'Not started' : new Date(p.next_review).toLocaleDateString()}</div></div>
+      <div class="item"><div class="lbl">Correct</div><div class="val green">${p.times_correct}</div></div>
+      <div class="item"><div class="lbl">Incorrect</div><div class="val red">${p.times_incorrect}</div></div>
+    </div>
+    <button class="btn-drill" onclick="drillConcept('${c.id}','${c.module}')">Drill Now</button>
+  </div>`;
+
+  app.innerHTML = html;
+  bindHeader();
+}
+
+window.drillConcept = async function(conceptId, module) {
+  const concept = state.concepts.find(c => c.id === conceptId);
+  if (!concept) return;
+
+  const { data: session, error } = await sb.from('sm_sessions').insert({
+    user_id: state.user.id, module, started_at: new Date().toISOString(),
+    items_reviewed: 0, items_correct: 0, items_incorrect: 0,
+  }).select().single();
+  if (error) { alert('Failed to create session'); return; }
+
+  state.activeSession = session;
+  state.activeModule = module;
+  state.sessionConcepts = [concept];
+  state.currentConceptIdx = 0;
+  state.messages = [];
+  state.chatDisplay = [];
+  state.sessionTimer = 0;
+  state.sending = false;
+
+  navigate(`/session/${module}`);
+};
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+window.navigate = navigate;
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('hashchange', router);
+
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    state.user = session.user;
+    await loadData();
+  }
+  router();
+})();
+</script>
+</body>
+</html>
