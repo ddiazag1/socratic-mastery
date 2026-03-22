@@ -24,18 +24,8 @@ input,textarea{font-family:inherit;font-size:inherit}
 .header{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:24px}
 .header h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .header .nav{display:flex;gap:12px;align-items:center}
-.header .nav a,.header .nav button{color:var(--text2);background:none;border:none;font-size:13px;padding:4px 8px;border-radius:4px}
-.header .nav a:hover,.header .nav button:hover{color:var(--text);background:var(--surface2)}
-
-/* Login */
-.login-wrap{display:flex;justify-content:center;align-items:center;min-height:80vh}
-.login-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;width:100%;max-width:380px}
-.login-box h2{margin-bottom:24px;text-align:center}
-.login-box input{width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);margin-bottom:12px}
-.login-box input:focus{outline:none;border-color:var(--accent)}
-.login-box button{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600;margin-top:8px}
-.login-box button:hover{background:var(--accent2)}
-.login-box .error{color:var(--red);font-size:13px;margin-top:8px}
+.header .nav a{color:var(--text2);font-size:13px;padding:4px 8px;border-radius:4px}
+.header .nav a:hover{color:var(--text);background:var(--surface2);text-decoration:none}
 
 /* Dashboard */
 .dash-streak{text-align:center;margin-bottom:24px;padding:16px;background:var(--surface);border-radius:8px;border:1px solid var(--border)}
@@ -77,10 +67,10 @@ input,textarea{font-family:inherit;font-size:inherit}
 .chat .msg.assistant pre{background:var(--surface2);padding:8px;border-radius:4px;overflow-x:auto;margin:8px 0}
 .chat .msg.assistant pre code{background:none;padding:0}
 .chat .typing{align-self:flex-start;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text2);font-size:13px}
-.chat .eval-flash{position:fixed;top:0;left:0;right:0;height:4px;animation:flash .8s ease-out;opacity:0;z-index:100}
-.chat .eval-flash.correct_confident{background:var(--green)}
-.chat .eval-flash.correct_hesitant{background:var(--yellow)}
-.chat .eval-flash.incorrect{background:var(--red)}
+.eval-flash{position:fixed;top:0;left:0;right:0;height:4px;animation:flash .8s ease-out;opacity:0;z-index:100}
+.eval-flash.correct_confident{background:var(--green)}
+.eval-flash.correct_hesitant{background:var(--yellow)}
+.eval-flash.incorrect{background:var(--red)}
 @keyframes flash{0%{opacity:1}100%{opacity:0}}
 .input-bar{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);padding:12px 16px}
 .input-bar form{max-width:900px;margin:0 auto;display:flex;gap:8px}
@@ -102,7 +92,7 @@ input,textarea{font-family:inherit;font-size:inherit}
 .summary button{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600}
 
 /* Progress */
-.progress-tabs{display:flex;gap:4px;margin-bottom:16px}
+.progress-tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
 .progress-tabs button{padding:8px 16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text2)}
 .progress-tabs button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .concept-list{display:flex;flex-direction:column;gap:8px}
@@ -135,8 +125,9 @@ input,textarea{font-family:inherit;font-size:inherit}
 .concept-detail .sm2-state .item .lbl{font-size:12px;color:var(--text2)}
 .concept-detail .sm2-state .item .val{font-size:18px;font-weight:600}
 .concept-detail .btn-drill{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600}
-.concept-detail .history{margin-top:16px}
-.concept-detail .history h3{font-size:14px;margin-bottom:8px}
+
+/* Loading */
+.loading{display:flex;justify-content:center;align-items:center;min-height:60vh;color:var(--text2)}
 
 /* Responsive */
 @media(max-width:600px){
@@ -147,7 +138,7 @@ input,textarea{font-family:inherit;font-size:inherit}
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><div class="loading">Loading concepts...</div></div>
 <script>
 // ============================================================
 // CONFIG
@@ -160,30 +151,46 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
 
 const MODULE_LABELS = {
-  ent_business: { name: 'ENT Business', icon: '💼', desc: 'Revenue cycle, practice finance, operations, strategy' },
-  neuro_boards: { name: 'Neuro Boards', icon: '🧠', desc: 'Spine, cranial, vascular, functional, trauma, critical care' },
-  leadership: { name: 'Leadership', icon: '🎯', desc: 'Rhetoric, learning science, time management, leadership' },
+  ent_business: { name: 'ENT Business', icon: '\u{1F4BC}', desc: 'Revenue cycle, practice finance, operations, strategy' },
+  neuro_boards: { name: 'Neuro Boards', icon: '\u{1F9E0}', desc: 'Spine, cranial, vascular, functional, trauma, critical care' },
+  leadership: { name: 'Leadership', icon: '\u{1F3AF}', desc: 'Rhetoric, learning science, time management, leadership' },
 };
+
+const LS_PROGRESS = 'sm_progress';
+const LS_SESSIONS = 'sm_sessions';
+
+// ============================================================
+// LOCAL STORAGE HELPERS
+// ============================================================
+function lsGet(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch { return fallback; }
+}
+function lsSet(key, val) {
+  localStorage.setItem(key, JSON.stringify(val));
+}
 
 // ============================================================
 // STATE
 // ============================================================
 let state = {
-  user: null,
   concepts: [],
-  progress: {},     // concept_id -> progress row
-  sessions: [],
-  // Session state
+  progress: lsGet(LS_PROGRESS, {}),   // concept_id -> progress obj
+  sessions: lsGet(LS_SESSIONS, []),    // array of session objects
+  // Active session state
   activeSession: null,
   activeModule: null,
   sessionConcepts: [],
   currentConceptIdx: 0,
-  messages: [],     // {role, content} for Claude
-  chatDisplay: [],  // {role, content, evaluation} for UI
+  messages: [],
+  chatDisplay: [],
   sessionTimer: 0,
   timerInterval: null,
   sending: false,
 };
+
+function saveProgress() { lsSet(LS_PROGRESS, state.progress); }
+function saveSessions() { lsSet(LS_SESSIONS, state.sessions); }
 
 // ============================================================
 // SM-2 ALGORITHM
@@ -192,7 +199,6 @@ function sm2Update(progress, evaluation) {
   const p = { ...progress };
   const now = new Date();
   p.last_reviewed = now.toISOString();
-  p.updated_at = now.toISOString();
 
   if (evaluation === 'correct_confident') {
     p.times_correct++;
@@ -207,7 +213,6 @@ function sm2Update(progress, evaluation) {
     p.interval_days = 1;
   }
 
-  // State transitions
   if (p.interval_days > 21) p.state = 'mastered';
   else if (p.interval_days > 3) p.state = 'review';
   else if (p.times_correct + p.times_incorrect > 0) p.state = 'learning';
@@ -218,18 +223,12 @@ function sm2Update(progress, evaluation) {
 }
 
 // ============================================================
-// DATA LOADING
+// DATA
 // ============================================================
-async function loadData() {
-  const [conceptsRes, progressRes, sessionsRes] = await Promise.all([
-    sb.from('sm_concepts').select('*').order('module').order('sort_order'),
-    sb.from('sm_progress').select('*').eq('user_id', state.user.id),
-    sb.from('sm_sessions').select('*').eq('user_id', state.user.id).order('started_at', { ascending: false }).limit(50),
-  ]);
-  state.concepts = conceptsRes.data || [];
-  state.progress = {};
-  (progressRes.data || []).forEach(p => { state.progress[p.concept_id] = p; });
-  state.sessions = sessionsRes.data || [];
+async function loadConcepts() {
+  const { data, error } = await sb.from('sm_concepts').select('*').order('module').order('sort_order');
+  if (error) { console.error('Failed to load concepts:', error); return; }
+  state.concepts = data || [];
 }
 
 function getProgress(conceptId) {
@@ -248,7 +247,7 @@ function getModuleStats(module) {
     counts[p.state]++;
     if (p.state === 'new' || new Date(p.next_review) <= now) counts.due++;
   });
-  const lastSession = state.sessions.find(s => s.module === module);
+  const lastSession = state.sessions.filter(s => s.module === module).sort((a,b) => new Date(b.started_at) - new Date(a.started_at))[0];
   return { total: concepts.length, ...counts, lastSession };
 }
 
@@ -256,9 +255,7 @@ function getWeakZones() {
   const weak = [];
   state.concepts.forEach(c => {
     const p = getProgress(c.id);
-    if (p.times_incorrect >= 2 && p.state !== 'mastered') {
-      weak.push(c.name);
-    }
+    if (p.times_incorrect >= 2 && p.state !== 'mastered') weak.push(c.name);
   });
   return weak;
 }
@@ -285,11 +282,9 @@ function getDueConcepts(module) {
   const newItems = [];
   concepts.forEach(c => {
     const p = getProgress(c.id);
-    if (p.state === 'new' && !(p.concept_id)) newItems.push(c);
+    if (p.state === 'new') newItems.push(c);
     else if (new Date(p.next_review) <= now) due.push(c);
-    else if (p.state === 'new') newItems.push(c);
   });
-  // Due items first (sorted by overdue-ness), then new items
   due.sort((a, b) => new Date(getProgress(a.id).next_review) - new Date(getProgress(b.id).next_review));
   return [...due, ...newItems];
 }
@@ -297,9 +292,7 @@ function getDueConcepts(module) {
 // ============================================================
 // ROUTING
 // ============================================================
-function navigate(hash) {
-  window.location.hash = hash;
-}
+function navigate(hash) { window.location.hash = hash; }
 
 function getRoute() {
   const hash = window.location.hash.slice(1) || '/';
@@ -313,76 +306,38 @@ function getRoute() {
 }
 
 async function router() {
-  if (!state.user) { renderLogin(); return; }
+  if (!state.concepts.length) { app.innerHTML = '<div class="loading">Loading concepts...</div>'; return; }
   const route = getRoute();
   switch (route.page) {
-    case 'dashboard': await renderDashboard(); break;
+    case 'dashboard': renderDashboard(); break;
     case 'session': await renderSession(route.module); break;
     case 'progress': renderProgress(route.module); break;
     case 'concept': renderConceptDetail(route.id); break;
     case 'summary': renderSummary(); break;
-    default: await renderDashboard();
+    default: renderDashboard();
   }
 }
 
 // ============================================================
-// RENDER: LOGIN
-// ============================================================
-function renderLogin() {
-  app.innerHTML = `
-    <div class="login-wrap">
-      <div class="login-box">
-        <h2>Socratic Mastery</h2>
-        <input type="email" id="email" placeholder="Email" autocomplete="email">
-        <input type="password" id="password" placeholder="Password" autocomplete="current-password">
-        <button id="loginBtn">Sign In</button>
-        <div class="error" id="loginError"></div>
-      </div>
-    </div>`;
-  document.getElementById('loginBtn').onclick = async () => {
-    const email = document.getElementById('email').value;
-    const pw = document.getElementById('password').value;
-    const { data, error } = await sb.auth.signInWithPassword({ email, password: pw });
-    if (error) { document.getElementById('loginError').textContent = error.message; return; }
-    state.user = data.user;
-    await loadData();
-    navigate('/');
-  };
-  // Enter to submit
-  document.getElementById('password').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('loginBtn').click();
-  });
-}
-
-// ============================================================
-// RENDER: HEADER
+// HEADER
 // ============================================================
 function headerHTML(title) {
   return `<div class="header">
     <h1>${title || 'Socratic Mastery'}</h1>
-    <div class="nav">
-      <a href="#/">Dashboard</a>
-      <button id="logoutBtn">Logout</button>
-    </div>
+    <div class="nav"><a href="#/">Dashboard</a></div>
   </div>`;
-}
-function bindHeader() {
-  const btn = document.getElementById('logoutBtn');
-  if (btn) btn.onclick = async () => { await sb.auth.signOut(); state.user = null; renderLogin(); };
 }
 
 // ============================================================
-// RENDER: DASHBOARD
+// DASHBOARD
 // ============================================================
-async function renderDashboard() {
+function renderDashboard() {
   const streak = getStreak();
   const weakZones = getWeakZones();
   let html = headerHTML();
 
-  // Streak
   html += `<div class="dash-streak"><div class="count">${streak}</div><div class="label">day streak</div></div>`;
 
-  // Module cards
   html += '<div class="module-grid">';
   for (const [mod, info] of Object.entries(MODULE_LABELS)) {
     const s = getModuleStats(mod);
@@ -409,38 +364,39 @@ async function renderDashboard() {
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-start" onclick="startSession('${mod}')">Start Session</button>
-        <a href="#/progress/${mod}" style="padding:8px 14px;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:13px;display:flex;align-items:center">Progress</a>
+        <a href="#/progress/${mod}" style="padding:8px 14px;border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:13px;display:flex;align-items:center;text-decoration:none">Progress</a>
       </div>
     </div>`;
   }
   html += '</div>';
 
-  // Weak zones
   if (weakZones.length) {
     html += `<div class="weak-zones"><h3>Weak Zones</h3><div>${weakZones.map(z => `<span class="zone">${z}</span>`).join('')}</div></div>`;
   }
 
   app.innerHTML = html;
-  bindHeader();
 }
 
 // ============================================================
-// SESSION MANAGEMENT
+// SESSION
 // ============================================================
 window.startSession = async function(module) {
   const due = getDueConcepts(module);
   if (!due.length) { alert('No concepts due for review!'); return; }
 
-  // Create session in DB
-  const { data: session, error } = await sb.from('sm_sessions').insert({
-    user_id: state.user.id, module, started_at: new Date().toISOString(),
-    items_reviewed: 0, items_correct: 0, items_incorrect: 0,
-  }).select().single();
-  if (error) { alert('Failed to create session: ' + error.message); return; }
+  const session = {
+    id: crypto.randomUUID(),
+    module,
+    started_at: new Date().toISOString(),
+    ended_at: null,
+    items_reviewed: 0,
+    items_correct: 0,
+    items_incorrect: 0,
+  };
 
   state.activeSession = session;
   state.activeModule = module;
-  state.sessionConcepts = due.slice(0, 10); // Max 10 per session
+  state.sessionConcepts = due.slice(0, 10);
   state.currentConceptIdx = 0;
   state.messages = [];
   state.chatDisplay = [];
@@ -457,17 +413,13 @@ async function renderSession(module) {
   }
 
   const concept = state.sessionConcepts[state.currentConceptIdx];
-  const weakZones = getWeakZones();
 
-  let html = '';
-  // Session header
-  html += `<div class="session-header">
-    <div class="concept">📌 ${concept ? concept.name : 'Complete'}</div>
+  let html = `<div class="session-header">
+    <div class="concept">\u{1F4CC} ${concept ? concept.name : 'Complete'}</div>
     <div class="timer" id="timer">00:00</div>
     <button class="btn-end" id="endSessionBtn">End Session</button>
   </div>`;
 
-  // Chat
   html += '<div class="chat" id="chat">';
   state.chatDisplay.forEach(m => {
     if (m.role === 'assistant') {
@@ -476,12 +428,9 @@ async function renderSession(module) {
       html += `<div class="msg user">${escapeHtml(m.content)}</div>`;
     }
   });
-  if (state.sending) {
-    html += '<div class="typing">Thinking...</div>';
-  }
+  if (state.sending) html += '<div class="typing">Thinking...</div>';
   html += '</div>';
 
-  // Input bar
   html += `<div class="input-bar"><form id="chatForm">
     <textarea id="chatInput" rows="1" placeholder="Type your answer..." ${state.sending ? 'disabled' : ''}></textarea>
     <button type="submit" ${state.sending ? 'disabled' : ''}>Send</button>
@@ -499,7 +448,7 @@ async function renderSession(module) {
     if (el) el.textContent = `${m}:${s}`;
   }, 1000);
 
-  // If no messages yet, start session with Claude
+  // Start session with Claude if fresh
   if (state.chatDisplay.length === 0) {
     await callTutor('start_session');
   }
@@ -515,7 +464,6 @@ async function renderSession(module) {
       input.value = '';
       await sendMessage(text);
     };
-    // Auto-resize textarea
     const input = document.getElementById('chatInput');
     if (input) {
       input.addEventListener('input', () => {
@@ -529,9 +477,7 @@ async function renderSession(module) {
     }
   }
 
-  // End session
   document.getElementById('endSessionBtn').onclick = () => endSession();
-
   scrollChat();
 }
 
@@ -569,27 +515,15 @@ async function callTutor(action) {
     });
 
     const data = await res.json();
-    if (data.error) { console.error('Tutor error:', data); }
+    if (data.error) console.error('Tutor error:', data);
 
     const content = data.content || data.error || 'No response';
     state.messages.push({ role: 'assistant', content });
     state.chatDisplay.push({ role: 'assistant', content, evaluation: data.evaluation });
 
-    // Save conversation turn
-    if (state.activeSession && concept) {
-      sb.from('sm_conversations').insert({
-        session_id: state.activeSession.id,
-        user_id: state.user.id,
-        concept_id: concept.id,
-        role: 'assistant',
-        content,
-        evaluation: data.evaluation,
-      }).then(() => {});
-    }
-
-    // Handle evaluation → SM-2 update
-    if (data.evaluation) {
-      await handleEvaluation(data.evaluation, concept);
+    // Handle evaluation -> SM-2 update
+    if (data.evaluation && concept) {
+      handleEvaluation(data.evaluation, concept);
     }
 
     // Handle next concept signal
@@ -605,7 +539,7 @@ async function callTutor(action) {
     }
   } catch (err) {
     console.error('Tutor call failed:', err);
-    state.chatDisplay.push({ role: 'assistant', content: `Error: ${err.message}. Check console for details.` });
+    state.chatDisplay.push({ role: 'assistant', content: `Error: ${err.message}` });
   }
 
   state.sending = false;
@@ -613,50 +547,13 @@ async function callTutor(action) {
   scrollChat();
 }
 
-async function handleEvaluation(evaluation, concept) {
-  if (!concept) return;
-
-  // Flash
+function handleEvaluation(evaluation, concept) {
   showEvalFlash(evaluation);
 
-  // Get or create progress row
-  let p = state.progress[concept.id];
-  if (!p) {
-    // Create new progress row
-    const newP = {
-      user_id: state.user.id,
-      concept_id: concept.id,
-      state: 'new',
-      interval_days: 0,
-      ease_factor: 2.5,
-      next_review: new Date().toISOString(),
-      times_correct: 0,
-      times_incorrect: 0,
-    };
-    const { data, error } = await sb.from('sm_progress').insert(newP).select().single();
-    if (error) { console.error('Progress insert error:', error); return; }
-    p = data;
-    state.progress[concept.id] = p;
-  }
-
-  // SM-2 update
+  let p = getProgress(concept.id);
   const updated = sm2Update(p, evaluation);
-
-  // Sync to DB
-  const { error } = await sb.from('sm_progress').update({
-    state: updated.state,
-    interval_days: updated.interval_days,
-    ease_factor: updated.ease_factor,
-    next_review: updated.next_review,
-    times_correct: updated.times_correct,
-    times_incorrect: updated.times_incorrect,
-    last_reviewed: updated.last_reviewed,
-    updated_at: updated.updated_at,
-  }).eq('id', p.id);
-
-  if (!error) {
-    state.progress[concept.id] = { ...p, ...updated };
-  }
+  state.progress[concept.id] = updated;
+  saveProgress();
 
   // Update session stats
   const sess = state.activeSession;
@@ -664,11 +561,6 @@ async function handleEvaluation(evaluation, concept) {
     sess.items_reviewed++;
     if (evaluation === 'correct_confident' || evaluation === 'correct_hesitant') sess.items_correct++;
     else sess.items_incorrect++;
-    sb.from('sm_sessions').update({
-      items_reviewed: sess.items_reviewed,
-      items_correct: sess.items_correct,
-      items_incorrect: sess.items_incorrect,
-    }).eq('id', sess.id).then(() => {});
   }
 }
 
@@ -690,17 +582,13 @@ function reRenderChat() {
       html += `<div class="msg user">${escapeHtml(m.content)}</div>`;
     }
   });
-  if (state.sending) {
-    html += '<div class="typing">Thinking...</div>';
-  }
+  if (state.sending) html += '<div class="typing">Thinking...</div>';
   chat.innerHTML = html;
 
-  // Update concept indicator
   const concept = state.sessionConcepts[state.currentConceptIdx];
   const conceptEl = document.querySelector('.session-header .concept');
-  if (conceptEl && concept) conceptEl.textContent = `📌 ${concept.name}`;
+  if (conceptEl && concept) conceptEl.textContent = `\u{1F4CC} ${concept.name}`;
 
-  // Enable/disable input
   const input = document.getElementById('chatInput');
   const btn = document.querySelector('.input-bar button');
   if (input) { input.disabled = state.sending; if (!state.sending) input.focus(); }
@@ -708,28 +596,21 @@ function reRenderChat() {
 }
 
 function scrollChat() {
-  const chat = document.getElementById('chat');
-  if (chat) {
-    setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 50);
-  }
+  setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 50);
 }
 
-async function endSession() {
+function endSession() {
   if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
   if (state.activeSession) {
-    await sb.from('sm_sessions').update({
-      ended_at: new Date().toISOString(),
-      items_reviewed: state.activeSession.items_reviewed,
-      items_correct: state.activeSession.items_correct,
-      items_incorrect: state.activeSession.items_incorrect,
-    }).eq('id', state.activeSession.id);
+    state.activeSession.ended_at = new Date().toISOString();
+    state.sessions.push(state.activeSession);
+    saveSessions();
   }
-  await loadData();
   navigate('/summary');
 }
 
 // ============================================================
-// RENDER: SUMMARY
+// SUMMARY
 // ============================================================
 function renderSummary() {
   const s = state.activeSession || { items_reviewed: 0, items_correct: 0, items_incorrect: 0 };
@@ -752,40 +633,35 @@ function renderSummary() {
       </div>
       <button onclick="navigate('/')">Back to Dashboard</button>
     </div>`;
-  bindHeader();
   state.activeSession = null;
 }
 
 // ============================================================
-// RENDER: PROGRESS
+// PROGRESS
 // ============================================================
 function renderProgress(module) {
-  const info = MODULE_LABELS[module] || { name: module, icon: '📚' };
+  const info = MODULE_LABELS[module] || { name: module, icon: '\u{1F4DA}' };
   const concepts = state.concepts.filter(c => c.module === module);
   const now = new Date();
 
-  // Group by category
   const categories = {};
   concepts.forEach(c => {
     if (!categories[c.category]) categories[c.category] = [];
     categories[c.category].push(c);
   });
 
-  // Due forecast
   const dueToday = concepts.filter(c => { const p = getProgress(c.id); return p.state === 'new' || new Date(p.next_review) <= now; }).length;
   const dueTomorrow = concepts.filter(c => { const p = getProgress(c.id); const nr = new Date(p.next_review); const tom = new Date(now); tom.setDate(tom.getDate()+1); tom.setHours(23,59,59); return nr > now && nr <= tom; }).length;
   const dueWeek = concepts.filter(c => { const p = getProgress(c.id); const nr = new Date(p.next_review); const wk = new Date(now); wk.setDate(wk.getDate()+7); return nr > now && nr <= wk; }).length;
 
   let html = headerHTML(`${info.icon} ${info.name}`);
 
-  // Tabs
   html += `<div class="progress-tabs">
     ${Object.entries(MODULE_LABELS).map(([m, i]) =>
       `<button class="${m===module?'active':''}" onclick="navigate('/progress/${m}')">${i.icon} ${i.name}</button>`
     ).join('')}
   </div>`;
 
-  // Due forecast
   html += `<div class="due-forecast">
     <h3>Due Forecast</h3>
     <div class="row"><span>Today</span><strong>${dueToday}</strong></div>
@@ -793,7 +669,6 @@ function renderProgress(module) {
     <div class="row"><span>This week</span><strong>${dueWeek}</strong></div>
   </div>`;
 
-  // Concept list by category
   for (const [cat, items] of Object.entries(categories)) {
     html += `<h3 style="margin:16px 0 8px;font-size:14px;color:var(--text2)">${cat}</h3>`;
     html += '<div class="concept-list">';
@@ -809,26 +684,24 @@ function renderProgress(module) {
     html += '</div>';
   }
 
-  // Session history
-  const modSessions = state.sessions.filter(s => s.module === module);
+  const modSessions = state.sessions.filter(s => s.module === module).sort((a,b) => new Date(b.started_at) - new Date(a.started_at));
   if (modSessions.length) {
     html += '<div class="session-history"><h3>Session History</h3>';
     modSessions.slice(0, 10).forEach(s => {
       const pct = s.items_reviewed ? Math.round(s.items_correct / s.items_reviewed * 100) : 0;
       html += `<div class="session-row">
         <span>${new Date(s.started_at).toLocaleDateString()} ${new Date(s.started_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
-        <span>${s.items_reviewed} items · ${pct}% accuracy</span>
+        <span>${s.items_reviewed} items \u00B7 ${pct}% accuracy</span>
       </div>`;
     });
     html += '</div>';
   }
 
   app.innerHTML = html;
-  bindHeader();
 }
 
 // ============================================================
-// RENDER: CONCEPT DETAIL
+// CONCEPT DETAIL
 // ============================================================
 function renderConceptDetail(id) {
   const c = state.concepts.find(x => x.id === id);
@@ -839,35 +712,31 @@ function renderConceptDetail(id) {
   let html = headerHTML(info.name);
   html += `<div class="concept-detail">
     <h2>${c.name}</h2>
-    <div class="cat">${c.category}${c.subcategory ? ' / ' + c.subcategory : ''} · Difficulty: ${'★'.repeat(c.difficulty)}${'☆'.repeat(5 - c.difficulty)}</div>
+    <div class="cat">${c.category}${c.subcategory ? ' / ' + c.subcategory : ''} \u00B7 Difficulty: ${'\u2605'.repeat(c.difficulty)}${'\u2606'.repeat(5 - c.difficulty)}</div>
     <div class="desc">${c.description || 'No description yet.'}</div>
     <div class="tags">${(c.tags || []).map(t => `<span>${t}</span>`).join('')}</div>
     <div class="sm2-state">
       <div class="item"><div class="lbl">State</div><div class="val" style="color:var(--${p.state==='mastered'?'green':p.state==='review'?'accent':p.state==='learning'?'yellow':'text2'})">${p.state}</div></div>
-      <div class="item"><div class="lbl">Interval</div><div class="val">${p.interval_days ? p.interval_days.toFixed(1) + 'd' : '—'}</div></div>
+      <div class="item"><div class="lbl">Interval</div><div class="val">${p.interval_days ? p.interval_days.toFixed(1) + 'd' : '\u2014'}</div></div>
       <div class="item"><div class="lbl">Ease Factor</div><div class="val">${p.ease_factor.toFixed(2)}</div></div>
       <div class="item"><div class="lbl">Next Review</div><div class="val" style="font-size:14px">${p.state === 'new' ? 'Not started' : new Date(p.next_review).toLocaleDateString()}</div></div>
-      <div class="item"><div class="lbl">Correct</div><div class="val green">${p.times_correct}</div></div>
-      <div class="item"><div class="lbl">Incorrect</div><div class="val red">${p.times_incorrect}</div></div>
+      <div class="item"><div class="lbl">Correct</div><div class="val" style="color:var(--green)">${p.times_correct}</div></div>
+      <div class="item"><div class="lbl">Incorrect</div><div class="val" style="color:var(--red)">${p.times_incorrect}</div></div>
     </div>
     <button class="btn-drill" onclick="drillConcept('${c.id}','${c.module}')">Drill Now</button>
   </div>`;
 
   app.innerHTML = html;
-  bindHeader();
 }
 
 window.drillConcept = async function(conceptId, module) {
   const concept = state.concepts.find(c => c.id === conceptId);
   if (!concept) return;
 
-  const { data: session, error } = await sb.from('sm_sessions').insert({
-    user_id: state.user.id, module, started_at: new Date().toISOString(),
-    items_reviewed: 0, items_correct: 0, items_incorrect: 0,
-  }).select().single();
-  if (error) { alert('Failed to create session'); return; }
-
-  state.activeSession = session;
+  state.activeSession = {
+    id: crypto.randomUUID(), module, started_at: new Date().toISOString(),
+    ended_at: null, items_reviewed: 0, items_correct: 0, items_incorrect: 0,
+  };
   state.activeModule = module;
   state.sessionConcepts = [concept];
   state.currentConceptIdx = 0;
@@ -896,11 +765,7 @@ window.navigate = navigate;
 window.addEventListener('hashchange', router);
 
 (async () => {
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    state.user = session.user;
-    await loadData();
-  }
+  await loadConcepts();
   router();
 })();
 </script>
