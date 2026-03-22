@@ -152,6 +152,21 @@ input,textarea{font-family:inherit;font-size:inherit}
 
 .loading{display:flex;justify-content:center;align-items:center;min-height:60vh;color:var(--text2)}
 
+/* Sync setup */
+.sync-wrap{display:flex;justify-content:center;align-items:center;min-height:80vh}
+.sync-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:32px;width:100%;max-width:400px;text-align:center}
+.sync-box h2{margin-bottom:8px}
+.sync-box p{color:var(--text2);font-size:13px;margin-bottom:20px}
+.sync-box input{width:100%;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:18px;text-align:center;letter-spacing:4px;text-transform:uppercase;margin-bottom:12px}
+.sync-box input:focus{outline:none;border-color:var(--accent)}
+.sync-box .btn-row{display:flex;gap:8px}
+.sync-box button{flex:1;padding:10px;border:none;border-radius:6px;font-weight:600}
+.sync-box .btn-new{background:var(--accent);color:#fff}
+.sync-box .btn-join{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.sync-box .btn-join:hover{border-color:var(--accent)}
+.sync-badge{font-size:11px;color:var(--text2);background:var(--surface2);padding:2px 8px;border-radius:4px;cursor:pointer}
+.sync-badge:hover{color:var(--text)}
+
 @media(max-width:600px){
   .module-grid{grid-template-columns:1fr}
   .summary .stat-grid{grid-template-columns:1fr}
@@ -181,6 +196,7 @@ const MODULE_LABELS = {
 const LS_PROGRESS = 'sm_progress';
 const LS_SESSIONS = 'sm_sessions';
 const LS_HANDSFREE = 'sm_handsfree';
+const LS_SYNC_KEY = 'sm_sync_key';
 
 const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 
@@ -192,6 +208,64 @@ function lsGet(key, fallback) {
   catch { return fallback; }
 }
 function lsSet(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+// ============================================================
+// CLOUD SYNC
+// ============================================================
+function getSyncKey() { return localStorage.getItem(LS_SYNC_KEY); }
+function setSyncKey(key) { localStorage.setItem(LS_SYNC_KEY, key); }
+
+function generateSyncKey() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
+  let key = '';
+  for (let i = 0; i < 6; i++) key += chars[Math.floor(Math.random() * chars.length)];
+  return key;
+}
+
+let syncDebounce = null;
+function cloudSave() {
+  const key = getSyncKey();
+  if (!key) return;
+  if (syncDebounce) clearTimeout(syncDebounce);
+  syncDebounce = setTimeout(async () => {
+    try {
+      await sb.from('sm_cloud_sync').upsert({
+        sync_key: key,
+        progress: state.progress,
+        sessions: state.sessions,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'sync_key' });
+    } catch (e) { console.error('Cloud save failed:', e); }
+  }, 1000);
+}
+
+async function cloudLoad() {
+  const key = getSyncKey();
+  if (!key) return false;
+  try {
+    const { data, error } = await sb.from('sm_cloud_sync').select('*').eq('sync_key', key).single();
+    if (error || !data) return false;
+    // Merge: cloud wins for progress (more recent last_reviewed), union for sessions
+    const cloudProgress = data.progress || {};
+    const cloudSessions = data.sessions || [];
+    // Merge progress — keep whichever has a more recent last_reviewed
+    for (const [id, cp] of Object.entries(cloudProgress)) {
+      const lp = state.progress[id];
+      if (!lp) { state.progress[id] = cp; continue; }
+      const cloudTime = cp.last_reviewed ? new Date(cp.last_reviewed).getTime() : 0;
+      const localTime = lp.last_reviewed ? new Date(lp.last_reviewed).getTime() : 0;
+      if (cloudTime > localTime) state.progress[id] = cp;
+    }
+    // Merge sessions — union by id
+    const localIds = new Set(state.sessions.map(s => s.id));
+    for (const cs of cloudSessions) {
+      if (!localIds.has(cs.id)) state.sessions.push(cs);
+    }
+    lsSet(LS_PROGRESS, state.progress);
+    lsSet(LS_SESSIONS, state.sessions);
+    return true;
+  } catch (e) { console.error('Cloud load failed:', e); return false; }
+}
 
 // ============================================================
 // STATE
@@ -215,8 +289,8 @@ let state = {
   speaking: false,
 };
 
-function saveProgress() { lsSet(LS_PROGRESS, state.progress); }
-function saveSessions() { lsSet(LS_SESSIONS, state.sessions); }
+function saveProgress() { lsSet(LS_PROGRESS, state.progress); cloudSave(); }
+function saveSessions() { lsSet(LS_SESSIONS, state.sessions); cloudSave(); }
 
 // ============================================================
 // SPEECH: TEXT-TO-SPEECH
@@ -522,13 +596,13 @@ function getRoute() {
 }
 
 async function router() {
-  // Clean up audio on navigation away from session
   const route = getRoute();
   if (route.page !== 'session') {
     stopListening();
     stopSpeaking();
   }
   if (!state.concepts.length) { app.innerHTML = '<div class="loading">Loading concepts...</div>'; return; }
+  if (!getSyncKey()) { renderSyncSetup(); return; }
   switch (route.page) {
     case 'dashboard': renderDashboard(); break;
     case 'session': await renderSession(route.module); break;
@@ -540,12 +614,47 @@ async function router() {
 }
 
 // ============================================================
+// SYNC SETUP
+// ============================================================
+function renderSyncSetup() {
+  app.innerHTML = `<div class="sync-wrap"><div class="sync-box">
+    <h2>Socratic Mastery</h2>
+    <p>Enter a sync code to pick up where you left off on another device, or create a new one.</p>
+    <input type="text" id="syncInput" maxlength="6" placeholder="ABC123" autocomplete="off">
+    <div class="btn-row">
+      <button class="btn-new" id="syncNewBtn">New Code</button>
+      <button class="btn-join" id="syncJoinBtn">Join Existing</button>
+    </div>
+  </div></div>`;
+  document.getElementById('syncNewBtn').onclick = async () => {
+    const key = generateSyncKey();
+    setSyncKey(key);
+    await cloudSave(); // create the row
+    router();
+  };
+  document.getElementById('syncJoinBtn').onclick = async () => {
+    const key = document.getElementById('syncInput').value.trim().toUpperCase();
+    if (key.length < 4) { alert('Enter at least 4 characters'); return; }
+    setSyncKey(key);
+    await cloudLoad();
+    router();
+  };
+  document.getElementById('syncInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('syncJoinBtn').click();
+  });
+}
+
+// ============================================================
 // HEADER
 // ============================================================
 function headerHTML(title) {
+  const key = getSyncKey() || '';
   return `<div class="header">
     <h1>${title || 'Socratic Mastery'}</h1>
-    <div class="nav"><a href="#/">Dashboard</a></div>
+    <div class="nav">
+      <a href="#/">Dashboard</a>
+      <span class="sync-badge" title="Your sync code — use on other devices" onclick="alert('Your sync code: ${key}\\nEnter this on any device to sync progress.')">${key}</span>
+    </div>
   </div>`;
 }
 
@@ -991,6 +1100,7 @@ window.addEventListener('hashchange', router);
 
 (async () => {
   await loadConcepts();
+  if (getSyncKey()) await cloudLoad();
   router();
 })();
 </script>
