@@ -19,7 +19,6 @@ a:hover{text-decoration:underline}
 button{cursor:pointer;font-family:inherit;font-size:inherit}
 input,textarea{font-family:inherit;font-size:inherit}
 
-/* Layout */
 #app{max-width:900px;margin:0 auto;padding:16px;min-height:100vh}
 .header{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:24px}
 .header h1{font-size:20px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -27,7 +26,6 @@ input,textarea{font-family:inherit;font-size:inherit}
 .header .nav a{color:var(--text2);font-size:13px;padding:4px 8px;border-radius:4px}
 .header .nav a:hover{color:var(--text);background:var(--surface2);text-decoration:none}
 
-/* Dashboard */
 .dash-streak{text-align:center;margin-bottom:24px;padding:16px;background:var(--surface);border-radius:8px;border:1px solid var(--border)}
 .dash-streak .count{font-size:32px;font-weight:700;color:var(--accent2)}
 .dash-streak .label{font-size:13px;color:var(--text2)}
@@ -52,12 +50,13 @@ input,textarea{font-family:inherit;font-size:inherit}
 .weak-zones .zone{display:inline-block;padding:4px 10px;background:rgba(239,68,68,.15);color:var(--red);border-radius:12px;font-size:12px;margin:2px 4px 2px 0}
 
 /* Session */
-.session-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:16px}
+.session-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;flex-wrap:wrap;gap:8px}
 .session-header .concept{font-size:14px;color:var(--accent2);font-weight:600}
+.session-header .controls{display:flex;align-items:center;gap:8px}
 .session-header .timer{font-size:13px;color:var(--text2);font-variant-numeric:tabular-nums}
 .session-header .btn-end{padding:6px 14px;background:var(--red);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600}
 .session-header .btn-end:hover{opacity:.9}
-.chat{display:flex;flex-direction:column;gap:12px;padding-bottom:80px;min-height:50vh}
+.chat{display:flex;flex-direction:column;gap:12px;padding-bottom:100px;min-height:50vh}
 .chat .msg{max-width:85%;padding:12px 16px;border-radius:12px;font-size:14px;line-height:1.6;word-wrap:break-word}
 .chat .msg.assistant{align-self:flex-start;background:var(--surface);border:1px solid var(--border)}
 .chat .msg.user{align-self:flex-end;background:var(--accent);color:#fff}
@@ -72,12 +71,37 @@ input,textarea{font-family:inherit;font-size:inherit}
 .eval-flash.correct_hesitant{background:var(--yellow)}
 .eval-flash.incorrect{background:var(--red)}
 @keyframes flash{0%{opacity:1}100%{opacity:0}}
+
+/* Input bar */
 .input-bar{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);padding:12px 16px}
-.input-bar form{max-width:900px;margin:0 auto;display:flex;gap:8px}
+.input-bar form{max-width:900px;margin:0 auto;display:flex;gap:8px;align-items:flex-end}
 .input-bar textarea{flex:1;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);resize:none;min-height:42px;max-height:120px}
 .input-bar textarea:focus{outline:none;border-color:var(--accent)}
-.input-bar button{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:600}
+.input-bar button[type="submit"]{padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-weight:600;min-height:42px}
 .input-bar button:disabled{opacity:.5;cursor:not-allowed}
+
+/* Mic button */
+.btn-mic{width:42px;height:42px;border-radius:50%;border:2px solid var(--border);background:var(--surface);color:var(--text2);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.btn-mic:hover{border-color:var(--accent);color:var(--text)}
+.btn-mic.listening{border-color:var(--red);color:var(--red);animation:pulse 1.5s infinite}
+.btn-mic svg{width:20px;height:20px}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+
+/* Hands-free toggle */
+.btn-handsfree{padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);white-space:nowrap;transition:all .2s}
+.btn-handsfree.active{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-handsfree.active:hover{opacity:.9}
+
+/* Hands-free listening overlay */
+.hf-listening{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--surface);border:2px solid var(--red);border-radius:16px;padding:12px 24px;display:flex;align-items:center;gap:10px;z-index:50;animation:pulse 1.5s infinite}
+.hf-listening .dot{width:12px;height:12px;border-radius:50%;background:var(--red)}
+.hf-listening .label{color:var(--text);font-size:14px;font-weight:600}
+
+/* Speaking indicator */
+.hf-speaking{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--surface);border:2px solid var(--accent);border-radius:16px;padding:12px 24px;display:flex;align-items:center;gap:10px;z-index:50}
+.hf-speaking .dot{width:12px;height:12px;border-radius:50%;background:var(--accent);animation:pulse-blue 1.5s infinite}
+.hf-speaking .label{color:var(--text);font-size:14px;font-weight:600}
+@keyframes pulse-blue{0%,100%{opacity:1}50%{opacity:.4}}
 
 /* Summary */
 .summary{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center}
@@ -126,10 +150,8 @@ input,textarea{font-family:inherit;font-size:inherit}
 .concept-detail .sm2-state .item .val{font-size:18px;font-weight:600}
 .concept-detail .btn-drill{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600}
 
-/* Loading */
 .loading{display:flex;justify-content:center;align-items:center;min-height:60vh;color:var(--text2)}
 
-/* Responsive */
 @media(max-width:600px){
   .module-grid{grid-template-columns:1fr}
   .summary .stat-grid{grid-template-columns:1fr}
@@ -153,31 +175,31 @@ const app = document.getElementById('app');
 const MODULE_LABELS = {
   ent_business: { name: 'ENT Business', icon: '\u{1F4BC}', desc: 'Revenue cycle, practice finance, operations, strategy' },
   neuro_boards: { name: 'Neuro Boards', icon: '\u{1F9E0}', desc: 'Spine, cranial, vascular, functional, trauma, critical care' },
-  leadership: { name: 'Leadership', icon: '\u{1F3AF}', desc: 'Rhetoric, learning science, time management, leadership' },
+  leadership: { name: 'Leadership', icon: '\u{1F3AF}', desc: 'Rhetoric, learning science, time management, entrepreneurship' },
 };
 
 const LS_PROGRESS = 'sm_progress';
 const LS_SESSIONS = 'sm_sessions';
+const LS_HANDSFREE = 'sm_handsfree';
+
+const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 
 // ============================================================
-// LOCAL STORAGE HELPERS
+// LOCAL STORAGE
 // ============================================================
 function lsGet(key, fallback) {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
   catch { return fallback; }
 }
-function lsSet(key, val) {
-  localStorage.setItem(key, JSON.stringify(val));
-}
+function lsSet(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 
 // ============================================================
 // STATE
 // ============================================================
 let state = {
   concepts: [],
-  progress: lsGet(LS_PROGRESS, {}),   // concept_id -> progress obj
-  sessions: lsGet(LS_SESSIONS, []),    // array of session objects
-  // Active session state
+  progress: lsGet(LS_PROGRESS, {}),
+  sessions: lsGet(LS_SESSIONS, []),
   activeSession: null,
   activeModule: null,
   sessionConcepts: [],
@@ -187,10 +209,204 @@ let state = {
   sessionTimer: 0,
   timerInterval: null,
   sending: false,
+  // Audio
+  handsFree: lsGet(LS_HANDSFREE, false),
+  listening: false,
+  speaking: false,
 };
 
 function saveProgress() { lsSet(LS_PROGRESS, state.progress); }
 function saveSessions() { lsSet(LS_SESSIONS, state.sessions); }
+
+// ============================================================
+// SPEECH: TEXT-TO-SPEECH
+// ============================================================
+function stripMarkdown(md) {
+  const div = document.createElement('div');
+  div.innerHTML = marked.parse(md);
+  return div.textContent || '';
+}
+
+function speak(text, onDone) {
+  if (!('speechSynthesis' in window)) { if (onDone) onDone(); return; }
+  window.speechSynthesis.cancel();
+  const plain = stripMarkdown(text);
+  // Split long text into chunks (speechSynthesis can cut off long utterances)
+  const chunks = [];
+  const sentences = plain.split(/(?<=[.!?])\s+/);
+  let current = '';
+  for (const s of sentences) {
+    if ((current + ' ' + s).length > 200) {
+      if (current) chunks.push(current.trim());
+      current = s;
+    } else {
+      current += (current ? ' ' : '') + s;
+    }
+  }
+  if (current) chunks.push(current.trim());
+  if (!chunks.length) { if (onDone) onDone(); return; }
+
+  state.speaking = true;
+  updateAudioIndicators();
+
+  let idx = 0;
+  function speakNext() {
+    if (idx >= chunks.length) {
+      state.speaking = false;
+      updateAudioIndicators();
+      if (onDone) onDone();
+      return;
+    }
+    const utt = new SpeechSynthesisUtterance(chunks[idx]);
+    utt.rate = 1.05;
+    utt.onend = () => { idx++; speakNext(); };
+    utt.onerror = () => { idx++; speakNext(); };
+    window.speechSynthesis.speak(utt);
+  }
+  speakNext();
+}
+
+function stopSpeaking() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  state.speaking = false;
+  updateAudioIndicators();
+}
+
+// ============================================================
+// SPEECH: SPEECH-TO-TEXT
+// ============================================================
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let recognitionTimeout = null;
+
+function initRecognition() {
+  if (!SpeechRecognition) return null;
+  const r = new SpeechRecognition();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = 'en-US';
+  return r;
+}
+
+function startListening() {
+  if (!SpeechRecognition) { alert('Speech recognition not supported in this browser. Use Chrome.'); return; }
+  stopSpeaking();
+  if (recognition) { try { recognition.abort(); } catch {} }
+  recognition = initRecognition();
+  let finalTranscript = '';
+  let lastResultTime = Date.now();
+
+  recognition.onresult = (e) => {
+    lastResultTime = Date.now();
+    let interim = '';
+    finalTranscript = '';
+    for (let i = 0; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalTranscript += e.results[i][0].transcript;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+    const input = document.getElementById('chatInput');
+    if (input) input.value = finalTranscript + interim;
+  };
+
+  recognition.onend = () => {
+    state.listening = false;
+    updateAudioIndicators();
+    // In hands-free mode, auto-send if we have text
+    const input = document.getElementById('chatInput');
+    if (input && input.value.trim() && state.handsFree && !state.sending) {
+      sendMessage(input.value.trim());
+      input.value = '';
+    }
+  };
+
+  recognition.onerror = (e) => {
+    console.log('Speech recognition error:', e.error);
+    state.listening = false;
+    updateAudioIndicators();
+    // In hands-free mode, restart listening on 'no-speech' error
+    if (state.handsFree && e.error === 'no-speech' && state.activeSession) {
+      setTimeout(() => { if (state.handsFree && !state.sending && !state.speaking) startListening(); }, 1000);
+    }
+  };
+
+  recognition.start();
+  state.listening = true;
+  updateAudioIndicators();
+
+  // In hands-free mode, auto-stop after 2s of silence
+  if (state.handsFree) {
+    if (recognitionTimeout) clearInterval(recognitionTimeout);
+    recognitionTimeout = setInterval(() => {
+      if (Date.now() - lastResultTime > 2500 && finalTranscript) {
+        stopListening();
+      }
+    }, 500);
+  }
+}
+
+function stopListening() {
+  if (recognitionTimeout) { clearInterval(recognitionTimeout); recognitionTimeout = null; }
+  if (recognition) { try { recognition.stop(); } catch {} }
+  state.listening = false;
+  updateAudioIndicators();
+}
+
+function toggleListening() {
+  if (state.listening) stopListening();
+  else startListening();
+}
+
+function updateAudioIndicators() {
+  // Update mic button style
+  const micBtn = document.getElementById('micBtn');
+  if (micBtn) {
+    micBtn.classList.toggle('listening', state.listening);
+  }
+  // Update hands-free button
+  const hfBtn = document.getElementById('hfBtn');
+  if (hfBtn) {
+    hfBtn.classList.toggle('active', state.handsFree);
+    hfBtn.textContent = state.handsFree ? 'Hands-Free ON' : 'Hands-Free';
+  }
+  // Floating indicators
+  let listenEl = document.getElementById('hfListenIndicator');
+  let speakEl = document.getElementById('hfSpeakIndicator');
+  if (state.listening && state.handsFree) {
+    if (!listenEl) {
+      listenEl = document.createElement('div');
+      listenEl.id = 'hfListenIndicator';
+      listenEl.className = 'hf-listening';
+      listenEl.innerHTML = '<div class="dot"></div><div class="label">Listening...</div>';
+      document.body.appendChild(listenEl);
+    }
+  } else {
+    if (listenEl) listenEl.remove();
+  }
+  if (state.speaking && state.handsFree) {
+    if (!speakEl) {
+      speakEl = document.createElement('div');
+      speakEl.id = 'hfSpeakIndicator';
+      speakEl.className = 'hf-speaking';
+      speakEl.innerHTML = '<div class="dot"></div><div class="label">Speaking...</div>';
+      document.body.appendChild(speakEl);
+    }
+  } else {
+    if (speakEl) speakEl.remove();
+  }
+}
+
+function toggleHandsFree() {
+  state.handsFree = !state.handsFree;
+  lsSet(LS_HANDSFREE, state.handsFree);
+  if (!state.handsFree) {
+    stopListening();
+    stopSpeaking();
+  }
+  updateAudioIndicators();
+}
 
 // ============================================================
 // SM-2 ALGORITHM
@@ -306,8 +522,13 @@ function getRoute() {
 }
 
 async function router() {
-  if (!state.concepts.length) { app.innerHTML = '<div class="loading">Loading concepts...</div>'; return; }
+  // Clean up audio on navigation away from session
   const route = getRoute();
+  if (route.page !== 'session') {
+    stopListening();
+    stopSpeaking();
+  }
+  if (!state.concepts.length) { app.innerHTML = '<div class="loading">Loading concepts...</div>'; return; }
   switch (route.page) {
     case 'dashboard': renderDashboard(); break;
     case 'session': await renderSession(route.module); break;
@@ -384,17 +605,10 @@ window.startSession = async function(module) {
   const due = getDueConcepts(module);
   if (!due.length) { alert('No concepts due for review!'); return; }
 
-  const session = {
-    id: crypto.randomUUID(),
-    module,
-    started_at: new Date().toISOString(),
-    ended_at: null,
-    items_reviewed: 0,
-    items_correct: 0,
-    items_incorrect: 0,
+  state.activeSession = {
+    id: crypto.randomUUID(), module, started_at: new Date().toISOString(),
+    ended_at: null, items_reviewed: 0, items_correct: 0, items_incorrect: 0,
   };
-
-  state.activeSession = session;
   state.activeModule = module;
   state.sessionConcepts = due.slice(0, 10);
   state.currentConceptIdx = 0;
@@ -416,8 +630,11 @@ async function renderSession(module) {
 
   let html = `<div class="session-header">
     <div class="concept">\u{1F4CC} ${concept ? concept.name : 'Complete'}</div>
-    <div class="timer" id="timer">00:00</div>
-    <button class="btn-end" id="endSessionBtn">End Session</button>
+    <div class="controls">
+      <button class="btn-handsfree ${state.handsFree ? 'active' : ''}" id="hfBtn" onclick="toggleHandsFree()">${state.handsFree ? 'Hands-Free ON' : 'Hands-Free'}</button>
+      <div class="timer" id="timer">00:00</div>
+      <button class="btn-end" id="endSessionBtn">End</button>
+    </div>
   </div>`;
 
   html += '<div class="chat" id="chat">';
@@ -432,7 +649,8 @@ async function renderSession(module) {
   html += '</div>';
 
   html += `<div class="input-bar"><form id="chatForm">
-    <textarea id="chatInput" rows="1" placeholder="Type your answer..." ${state.sending ? 'disabled' : ''}></textarea>
+    <button type="button" class="btn-mic ${state.listening ? 'listening' : ''}" id="micBtn" onclick="toggleListening()">${MIC_SVG}</button>
+    <textarea id="chatInput" rows="1" placeholder="${state.handsFree ? 'Hands-free mode — speak your answer' : 'Type or tap mic to speak...'}" ${state.sending ? 'disabled' : ''}></textarea>
     <button type="submit" ${state.sending ? 'disabled' : ''}>Send</button>
   </form></div>`;
 
@@ -448,37 +666,38 @@ async function renderSession(module) {
     if (el) el.textContent = `${m}:${s}`;
   }, 1000);
 
-  // Start session with Claude if fresh
   if (state.chatDisplay.length === 0) {
     await callTutor('start_session');
   }
 
-  // Bind form
-  const form = document.getElementById('chatForm');
-  if (form) {
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const input = document.getElementById('chatInput');
-      const text = input.value.trim();
-      if (!text || state.sending) return;
-      input.value = '';
-      await sendMessage(text);
-    };
-    const input = document.getElementById('chatInput');
-    if (input) {
-      input.addEventListener('input', () => {
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-      });
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.dispatchEvent(new Event('submit')); }
-      });
-      input.focus();
-    }
-  }
-
+  bindSessionForm();
   document.getElementById('endSessionBtn').onclick = () => endSession();
   scrollChat();
+}
+
+function bindSessionForm() {
+  const form = document.getElementById('chatForm');
+  if (!form) return;
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text || state.sending) return;
+    input.value = '';
+    stopListening();
+    await sendMessage(text);
+  };
+  const input = document.getElementById('chatInput');
+  if (input) {
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.dispatchEvent(new Event('submit')); }
+    });
+    if (!state.handsFree) input.focus();
+  }
 }
 
 async function sendMessage(text) {
@@ -521,12 +740,10 @@ async function callTutor(action) {
     state.messages.push({ role: 'assistant', content });
     state.chatDisplay.push({ role: 'assistant', content, evaluation: data.evaluation });
 
-    // Handle evaluation -> SM-2 update
     if (data.evaluation && concept) {
       handleEvaluation(data.evaluation, concept);
     }
 
-    // Handle next concept signal
     if (data.nextConcept) {
       const nextIdx = state.sessionConcepts.findIndex(c =>
         c.name.toLowerCase().includes(data.nextConcept.toLowerCase())
@@ -536,6 +753,15 @@ async function callTutor(action) {
       } else if (state.currentConceptIdx < state.sessionConcepts.length - 1) {
         state.currentConceptIdx++;
       }
+    }
+
+    // Hands-free: speak the response, then auto-listen
+    if (state.handsFree) {
+      speak(content, () => {
+        if (state.handsFree && state.activeSession && !state.sending) {
+          setTimeout(() => startListening(), 500);
+        }
+      });
     }
   } catch (err) {
     console.error('Tutor call failed:', err);
@@ -549,13 +775,10 @@ async function callTutor(action) {
 
 function handleEvaluation(evaluation, concept) {
   showEvalFlash(evaluation);
-
   let p = getProgress(concept.id);
   const updated = sm2Update(p, evaluation);
   state.progress[concept.id] = updated;
   saveProgress();
-
-  // Update session stats
   const sess = state.activeSession;
   if (sess) {
     sess.items_reviewed++;
@@ -590,8 +813,8 @@ function reRenderChat() {
   if (conceptEl && concept) conceptEl.textContent = `\u{1F4CC} ${concept.name}`;
 
   const input = document.getElementById('chatInput');
-  const btn = document.querySelector('.input-bar button');
-  if (input) { input.disabled = state.sending; if (!state.sending) input.focus(); }
+  const btn = document.querySelector('.input-bar button[type="submit"]');
+  if (input) { input.disabled = state.sending; if (!state.sending && !state.handsFree) input.focus(); }
   if (btn) btn.disabled = state.sending;
 }
 
@@ -601,6 +824,8 @@ function scrollChat() {
 
 function endSession() {
   if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+  stopListening();
+  stopSpeaking();
   if (state.activeSession) {
     state.activeSession.ended_at = new Date().toISOString();
     state.sessions.push(state.activeSession);
@@ -732,7 +957,6 @@ function renderConceptDetail(id) {
 window.drillConcept = async function(conceptId, module) {
   const concept = state.concepts.find(c => c.id === conceptId);
   if (!concept) return;
-
   state.activeSession = {
     id: crypto.randomUUID(), module, started_at: new Date().toISOString(),
     ended_at: null, items_reviewed: 0, items_correct: 0, items_incorrect: 0,
@@ -744,7 +968,6 @@ window.drillConcept = async function(conceptId, module) {
   state.chatDisplay = [];
   state.sessionTimer = 0;
   state.sending = false;
-
   navigate(`/session/${module}`);
 };
 
@@ -758,6 +981,8 @@ function escapeHtml(text) {
 }
 
 window.navigate = navigate;
+window.toggleHandsFree = toggleHandsFree;
+window.toggleListening = toggleListening;
 
 // ============================================================
 // INIT
