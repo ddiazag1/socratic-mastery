@@ -197,6 +197,7 @@ const LS_PROGRESS = 'sm_progress';
 const LS_SESSIONS = 'sm_sessions';
 const LS_HANDSFREE = 'sm_handsfree';
 const LS_SYNC_KEY = 'sm_sync_key';
+const FIXED_SYNC_KEY = 'DIAZ01';
 
 const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 
@@ -212,15 +213,7 @@ function lsSet(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
 // ============================================================
 // CLOUD SYNC
 // ============================================================
-function getSyncKey() { return localStorage.getItem(LS_SYNC_KEY); }
-function setSyncKey(key) { localStorage.setItem(LS_SYNC_KEY, key); }
-
-function generateSyncKey() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
-  let key = '';
-  for (let i = 0; i < 6; i++) key += chars[Math.floor(Math.random() * chars.length)];
-  return key;
-}
+function getSyncKey() { return FIXED_SYNC_KEY; }
 
 let syncDebounce = null;
 function cloudSave() {
@@ -602,7 +595,6 @@ async function router() {
     stopSpeaking();
   }
   if (!state.concepts.length) { app.innerHTML = '<div class="loading">Loading concepts...</div>'; return; }
-  if (!getSyncKey()) { renderSyncSetup(); return; }
   switch (route.page) {
     case 'dashboard': renderDashboard(); break;
     case 'session': await renderSession(route.module); break;
@@ -614,47 +606,12 @@ async function router() {
 }
 
 // ============================================================
-// SYNC SETUP
-// ============================================================
-function renderSyncSetup() {
-  app.innerHTML = `<div class="sync-wrap"><div class="sync-box">
-    <h2>Socratic Mastery</h2>
-    <p>Enter a sync code to pick up where you left off on another device, or create a new one.</p>
-    <input type="text" id="syncInput" maxlength="6" placeholder="ABC123" autocomplete="off">
-    <div class="btn-row">
-      <button class="btn-new" id="syncNewBtn">New Code</button>
-      <button class="btn-join" id="syncJoinBtn">Join Existing</button>
-    </div>
-  </div></div>`;
-  document.getElementById('syncNewBtn').onclick = async () => {
-    const key = generateSyncKey();
-    setSyncKey(key);
-    await cloudSave(); // create the row
-    router();
-  };
-  document.getElementById('syncJoinBtn').onclick = async () => {
-    const key = document.getElementById('syncInput').value.trim().toUpperCase();
-    if (key.length < 4) { alert('Enter at least 4 characters'); return; }
-    setSyncKey(key);
-    await cloudLoad();
-    router();
-  };
-  document.getElementById('syncInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('syncJoinBtn').click();
-  });
-}
-
-// ============================================================
 // HEADER
 // ============================================================
 function headerHTML(title) {
-  const key = getSyncKey() || '';
   return `<div class="header">
     <h1>${title || 'Socratic Mastery'}</h1>
-    <div class="nav">
-      <a href="#/">Dashboard</a>
-      <span class="sync-badge" title="Your sync code — use on other devices" onclick="alert('Your sync code: ${key}\\nEnter this on any device to sync progress.')">${key}</span>
-    </div>
+    <div class="nav"><a href="#/">Dashboard</a></div>
   </div>`;
 }
 
