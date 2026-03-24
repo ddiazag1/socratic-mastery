@@ -115,6 +115,26 @@ input,textarea{font-family:inherit;font-size:inherit}
 .summary .stat .val.blue{color:var(--accent2)}
 .summary button{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-weight:600}
 
+/* Summary concept checklist */
+.summary-concepts{text-align:left;margin:20px 0}
+.summary-concepts h3{font-size:14px;color:var(--text2);margin-bottom:10px;text-align:center}
+.summary-concept-row{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:background .2s;border:1px solid transparent}
+.summary-concept-row:hover{border-color:var(--border)}
+.summary-concept-row .eval-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.summary-concept-row .eval-dot.correct{background:var(--green)}
+.summary-concept-row .eval-dot.incorrect{background:var(--red)}
+.summary-concept-row .eval-dot.none{background:var(--border)}
+.summary-concept-row .sc-name{flex:1;font-size:14px}
+.summary-concept-row input[type="checkbox"]{width:18px;height:18px;accent-color:var(--yellow);cursor:pointer;flex-shrink:0}
+.summary-concept-row .flag-label{font-size:11px;color:var(--yellow);font-weight:600}
+
+/* Review banner */
+.review-banner{background:linear-gradient(135deg,rgba(234,179,8,.15),rgba(239,68,68,.1));border:1px solid var(--yellow);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.review-banner .rb-text{font-size:14px}
+.review-banner .rb-text strong{color:var(--yellow)}
+.review-banner .rb-count{font-size:12px;color:var(--text2)}
+.review-banner button{padding:8px 18px;background:var(--yellow);color:#000;border:none;border-radius:6px;font-weight:600;font-size:13px}
+
 /* Progress */
 .progress-tabs{display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap}
 .progress-tabs button{padding:8px 16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text2)}
@@ -197,7 +217,10 @@ const LS_PROGRESS = 'sm_progress';
 const LS_SESSIONS = 'sm_sessions';
 const LS_HANDSFREE = 'sm_handsfree';
 const LS_SYNC_KEY = 'sm_sync_key';
+const LS_FLAGGED = 'sm_flagged';
+const LS_LAST_REVIEW = 'sm_last_review';
 const FIXED_SYNC_KEY = 'DIAZ01';
+const REVIEW_INTERVAL_DAYS = 3;
 
 const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
 
@@ -224,7 +247,7 @@ function cloudSave() {
     try {
       await sb.from('sm_cloud_sync').upsert({
         sync_key: key,
-        progress: state.progress,
+        progress: { ...state.progress, _flagged: state.flagged, _lastReview: state.lastReviewDates },
         sessions: state.sessions,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'sync_key' });
@@ -241,6 +264,11 @@ async function cloudLoad() {
     // Merge: cloud wins for progress (more recent last_reviewed), union for sessions
     const cloudProgress = data.progress || {};
     const cloudSessions = data.sessions || [];
+    // Extract flagged/lastReview from cloud progress blob
+    const cloudFlagged = cloudProgress._flagged || {};
+    const cloudLastReview = cloudProgress._lastReview || {};
+    delete cloudProgress._flagged;
+    delete cloudProgress._lastReview;
     // Merge progress — keep whichever has a more recent last_reviewed
     for (const [id, cp] of Object.entries(cloudProgress)) {
       const lp = state.progress[id];
@@ -249,6 +277,16 @@ async function cloudLoad() {
       const localTime = lp.last_reviewed ? new Date(lp.last_reviewed).getTime() : 0;
       if (cloudTime > localTime) state.progress[id] = cp;
     }
+    // Merge flagged — union (if flagged anywhere, keep it)
+    for (const [id, val] of Object.entries(cloudFlagged)) {
+      if (val) state.flagged[id] = true;
+    }
+    // Merge lastReview — keep most recent per module
+    for (const [mod, dateStr] of Object.entries(cloudLastReview)) {
+      const cloudTime = new Date(dateStr).getTime();
+      const localTime = state.lastReviewDates[mod] ? new Date(state.lastReviewDates[mod]).getTime() : 0;
+      if (cloudTime > localTime) state.lastReviewDates[mod] = dateStr;
+    }
     // Merge sessions — union by id
     const localIds = new Set(state.sessions.map(s => s.id));
     for (const cs of cloudSessions) {
@@ -256,6 +294,8 @@ async function cloudLoad() {
     }
     lsSet(LS_PROGRESS, state.progress);
     lsSet(LS_SESSIONS, state.sessions);
+    lsSet(LS_FLAGGED, state.flagged);
+    lsSet(LS_LAST_REVIEW, state.lastReviewDates);
     return true;
   } catch (e) { console.error('Cloud load failed:', e); return false; }
 }
@@ -267,6 +307,8 @@ let state = {
   concepts: [],
   progress: lsGet(LS_PROGRESS, {}),
   sessions: lsGet(LS_SESSIONS, []),
+  flagged: lsGet(LS_FLAGGED, {}), // { conceptId: true }
+  lastReviewDates: lsGet(LS_LAST_REVIEW, {}), // { module: ISO date }
   activeSession: null,
   activeModule: null,
   sessionConcepts: [],
@@ -276,6 +318,7 @@ let state = {
   sessionTimer: 0,
   timerInterval: null,
   sending: false,
+  sessionEvals: {}, // { conceptId: 'correct'|'incorrect' } — tracks evals during current session
   // Audio
   handsFree: lsGet(LS_HANDSFREE, false),
   listening: false,
@@ -284,6 +327,35 @@ let state = {
 
 function saveProgress() { lsSet(LS_PROGRESS, state.progress); cloudSave(); }
 function saveSessions() { lsSet(LS_SESSIONS, state.sessions); cloudSave(); }
+function saveFlagged() { lsSet(LS_FLAGGED, state.flagged); cloudSave(); }
+function saveLastReview() { lsSet(LS_LAST_REVIEW, state.lastReviewDates); cloudSave(); }
+
+function isReviewDue(module) {
+  const last = state.lastReviewDates[module];
+  if (!last) {
+    // Only show review if there are flagged/missed concepts to review
+    return getReviewConcepts(module).length > 0;
+  }
+  const daysSince = (Date.now() - new Date(last).getTime()) / 86400000;
+  return daysSince >= REVIEW_INTERVAL_DAYS && getReviewConcepts(module).length > 0;
+}
+
+function getReviewConcepts(module) {
+  const concepts = state.concepts.filter(c => c.module === module);
+  const review = [];
+  const seen = new Set();
+  // Flagged concepts
+  concepts.forEach(c => {
+    if (state.flagged[c.id]) { review.push(c); seen.add(c.id); }
+  });
+  // Concepts with 2+ incorrect that aren't mastered
+  concepts.forEach(c => {
+    if (seen.has(c.id)) return;
+    const p = getProgress(c.id);
+    if (p.times_incorrect >= 2 && p.state !== 'mastered') { review.push(c); }
+  });
+  return review;
+}
 
 // ============================================================
 // SPEECH: TEXT-TO-SPEECH
@@ -625,6 +697,20 @@ function renderDashboard() {
 
   html += `<div class="dash-streak"><div class="count">${streak}</div><div class="label">day streak</div></div>`;
 
+  // Review banners
+  for (const [mod, info] of Object.entries(MODULE_LABELS)) {
+    if (isReviewDue(mod)) {
+      const reviewCount = getReviewConcepts(mod).length;
+      html += `<div class="review-banner">
+        <div>
+          <div class="rb-text"><strong>Review Due:</strong> ${info.icon} ${info.name}</div>
+          <div class="rb-count">${reviewCount} concept${reviewCount !== 1 ? 's' : ''} flagged or missed</div>
+        </div>
+        <button onclick="startReviewSession('${mod}')">Start Review</button>
+      </div>`;
+    }
+  }
+
   html += '<div class="module-grid">';
   for (const [mod, info] of Object.entries(MODULE_LABELS)) {
     const s = getModuleStats(mod);
@@ -682,6 +768,7 @@ window.startSession = async function(module) {
   state.chatDisplay = [];
   state.sessionTimer = 0;
   state.sending = false;
+  state.sessionEvals = {};
 
   navigate(`/session/${module}`);
 };
@@ -845,6 +932,12 @@ function handleEvaluation(evaluation, concept) {
   const updated = sm2Update(p, evaluation);
   state.progress[concept.id] = updated;
   saveProgress();
+  // Track per-concept eval for summary checkboxes
+  if (evaluation === 'incorrect') {
+    state.sessionEvals[concept.id] = 'incorrect';
+  } else if (!state.sessionEvals[concept.id] || state.sessionEvals[concept.id] !== 'incorrect') {
+    state.sessionEvals[concept.id] = 'correct';
+  }
   const sess = state.activeSession;
   if (sess) {
     sess.items_reviewed++;
@@ -892,6 +985,11 @@ function endSession() {
   if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
   stopListening();
   stopSpeaking();
+  // Auto-flag concepts you got wrong
+  for (const [id, result] of Object.entries(state.sessionEvals)) {
+    if (result === 'incorrect') state.flagged[id] = true;
+  }
+  saveFlagged();
   if (state.activeSession) {
     state.activeSession.ended_at = new Date().toISOString();
     state.sessions.push(state.activeSession);
@@ -908,10 +1006,28 @@ function renderSummary() {
   const pct = s.items_reviewed ? Math.round(s.items_correct / s.items_reviewed * 100) : 0;
   const m = Math.floor(state.sessionTimer / 60);
   const sec = state.sessionTimer % 60;
+  const isReview = s.isReview || false;
+
+  // Build concept checklist
+  let conceptsHTML = '';
+  if (state.sessionConcepts.length) {
+    conceptsHTML = '<div class="summary-concepts"><h3>Flag concepts for review</h3>';
+    state.sessionConcepts.forEach(c => {
+      const evalResult = state.sessionEvals[c.id] || 'none';
+      const isFlagged = !!state.flagged[c.id];
+      conceptsHTML += `<label class="summary-concept-row">
+        <span class="eval-dot ${evalResult === 'incorrect' ? 'incorrect' : evalResult === 'correct' ? 'correct' : 'none'}"></span>
+        <span class="sc-name">${c.name}</span>
+        ${isFlagged ? '<span class="flag-label">REVIEW</span>' : ''}
+        <input type="checkbox" ${isFlagged ? 'checked' : ''} onchange="toggleFlag('${c.id}', this.checked)">
+      </label>`;
+    });
+    conceptsHTML += '</div>';
+  }
 
   app.innerHTML = headerHTML('Session Complete') + `
     <div class="summary">
-      <h2>Session Summary</h2>
+      <h2>${isReview ? 'Review Session Complete' : 'Session Summary'}</h2>
       <div class="stat-grid">
         <div class="stat"><div class="val blue">${s.items_reviewed}</div><div class="lbl">Items Reviewed</div></div>
         <div class="stat"><div class="val green">${pct}%</div><div class="lbl">Accuracy</div></div>
@@ -922,10 +1038,20 @@ function renderSummary() {
         <div class="stat"><div class="val red">${s.items_incorrect}</div><div class="lbl">Incorrect</div></div>
         <div class="stat"><div class="val">${state.sessionConcepts.length}</div><div class="lbl">Concepts</div></div>
       </div>
+      ${conceptsHTML}
       <button onclick="navigate('/')">Back to Dashboard</button>
     </div>`;
   state.activeSession = null;
 }
+
+window.toggleFlag = function(conceptId, checked) {
+  if (checked) {
+    state.flagged[conceptId] = true;
+  } else {
+    delete state.flagged[conceptId];
+  }
+  saveFlagged();
+};
 
 // ============================================================
 // PROGRESS
@@ -1019,6 +1145,30 @@ function renderConceptDetail(id) {
 
   app.innerHTML = html;
 }
+
+window.startReviewSession = async function(module) {
+  const reviewConcepts = getReviewConcepts(module);
+  if (!reviewConcepts.length) { alert('No concepts to review!'); return; }
+
+  state.activeSession = {
+    id: crypto.randomUUID(), module, started_at: new Date().toISOString(),
+    ended_at: null, items_reviewed: 0, items_correct: 0, items_incorrect: 0, isReview: true,
+  };
+  state.activeModule = module;
+  state.sessionConcepts = reviewConcepts.slice(0, 10);
+  state.currentConceptIdx = 0;
+  state.messages = [];
+  state.chatDisplay = [];
+  state.sessionTimer = 0;
+  state.sending = false;
+  state.sessionEvals = {};
+
+  // Mark review date
+  state.lastReviewDates[module] = new Date().toISOString();
+  saveLastReview();
+
+  navigate(`/session/${module}`);
+};
 
 window.drillConcept = async function(conceptId, module) {
   const concept = state.concepts.find(c => c.id === conceptId);
